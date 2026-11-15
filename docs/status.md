@@ -5,24 +5,24 @@ Last updated: 2026-11-15 (Claude).
 ## Progress
 
 - S0-001 holds the original POC draft as the historical baseline.
-- [S0-002](../project/sprint-0/tickets/S0-002-discovery-suitability/ticket.md): spec revision 4 is approved by the user. The implementation plan (plan.md, version 1) is written and awaits the user's approval.
-- Working rules are in [workflow.md](workflow.md): specs stay with their ticket (DEC-003); tickets follow specify, review, approve, plan, implement, verify (DEC-005).
-- No application code exists. Nothing from ChatGPT's or Claude's sessions is committed.
+- [S0-002](../project/sprint-0/tickets/S0-002-discovery-suitability/ticket.md): spec revision 4 and plan version 2 are approved. Sonnet has implemented the app locally. The user is testing it.
+- Working rules are in [workflow.md](workflow.md): specs stay with their ticket (DEC-003); tickets follow specify, review, approve, plan, implement and test, user testing, ship (DEC-005).
+- Git: docs are committed locally (cff3728). The application, and later edits to workflow.md, the plan, the ticket and this file, are uncommitted. Nothing is pushed.
 
 ## Verification and evidence
 
-- Checked 2026-11-15: local Markdown links resolve. `origin` is https://github.com/sharmaaq/charity-funding.git with one commit on master. Node v24.22.1 is installed; Docker is not. gcloud is signed in as the user with a different default project, so project `charity-funding-514818` must be passed explicitly.
-- Not checked: funder pages were not re-fetched by Claude; research.md records ChatGPT's checks. Access to and billing on the Google Cloud project have not been tested.
-- Application tests: not run; no application source exists.
+- Reported by the implementer, not re-run by Claude: `npm test` gave 22 of 22 unit tests and 45 of 45 Playwright tests passing (Chromium at 360, 390 and 1280 px).
+- Checked by Claude 2026-11-15: Google Cloud project `charity-funding-514818` is active with billing enabled; Cloud Run, Cloud Build and Artifact Registry APIs are enabled. gcloud's default project is a different one, so the project must be passed explicitly.
+- Not tested by anyone: the Dockerfile and deploy command, non-Chromium browsers, a real phone, measured contrast, screen readers. Funder pages were not re-fetched after ChatGPT's research.
 
 ## Blockers and pending questions
 
-- User approval of the plan, and answers to its deployment questions D1 to D6 (region, service name, public access, billing and APIs, commit and push, what to do with `.transfer-temp/`).
+- None. Waiting for the user's local testing.
 
 ## Next action
 
-1. User approves [plan.md](../project/sprint-0/tickets/S0-002-discovery-suitability/plan.md).
-2. Claude delegates implementation (typically to Sonnet), verifies it and gives the user a local URL.
-3. Claude and the user commit, push and deploy; the user does the phone check.
+1. User tests locally: `npm install`, `npm start`, http://localhost:8090.
+2. On the user's request, the implementing model commits, pushes and deploys per the [plan](../project/sprint-0/tickets/S0-002-discovery-suitability/plan.md) (region `europe-west1`, service `charity-funding`, public access).
+3. User does the phone check; record the URL and results.
 
-ChatGPT: S0-002's spec is approved. Do not edit it or recreate a sprint-root spec. New requirement changes go into S0-003.
+ChatGPT: S0-002's spec is approved and implemented. Do not edit it or recreate a sprint-root spec. New requirement changes go into S0-003.

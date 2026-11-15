@@ -8,7 +8,7 @@ This is the single source of shared workflow rules for charity-funding.
 - Use repository files for durable project knowledge. Chat history and assistant-specific memory are supplementary.
 - Roles (DEC-005). ChatGPT Work defaults to research, requirements and drafting specifications. Claude reviews each specification, plans the implementation, delegates the build to an implementing model and verifies the result. The user may explicitly override these roles for an individual task, including asking either assistant to finish work the other could not complete.
 
-## Ticket pipeline
+~~## Ticket pipeline
 
 Each ticket moves through these stages in order. The user's approval is the gate between them; an assistant does not advance a ticket on its own.
 
@@ -16,8 +16,9 @@ Each ticket moves through these stages in order. The user's approval is the gate
 2. **Review.** Claude reviews the spec against the user's request, the repository and the evidence. Claude fixes clear defects directly and lists anything that changes behaviour or scope as numbered open questions with a recommendation each. The user answers; the answers are folded into the spec.
 3. **Approve the spec.** The user reviews the spec again and asks Claude to plan. A spec marked "ready" by an assistant is not approved.
 4. **Plan.** Claude writes `plan.md` in the ticket folder: stack, files, steps, tests and how each REQ is verified. The user approves it.
-5. **Implement.** Claude hands the approved spec and plan to an implementing model (typically Sonnet). The implementer follows the plan and reports deviations instead of improvising scope.
-6. **Verify and record.** Claude checks the result against the acceptance criteria, runs the tests, and records actual results and discrepancies in the ticket and [status.md](status.md).
+5. **Implement and test.** Claude hands the approved spec and plan to an implementing model (typically Sonnet). The implementer follows the plan, runs the automated tests itself and reports actual results and deviations instead of improvising scope. Claude does not re-run the tests or re-test by hand unless the user asks; it records the implementer's reported results in the ticket and [status.md](status.md), labelled as reported by the implementer.
+6. **User testing.** The user tests the result locally.
+7. **Ship.** When the user asks, the implementing model commits, pushes and deploys. No commit of application code, push or deployment happens before that request.~~
 
 ## Requirements, research and evidence
 

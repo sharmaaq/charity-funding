@@ -1,0 +1,14 @@
+node_modules
+test-results
+playwright-report
+tests
+docs
+project
+.idea
+.git
+.transfer-temp
+playwright.config.js
+README.md
+Dockerfile
+.dockerignore
+.gcloudignore

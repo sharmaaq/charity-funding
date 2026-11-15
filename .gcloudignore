@@ -1,0 +1,10 @@
+.git
+.gitignore
+docs/
+project/
+tests/
+.idea/
+node_modules/
+test-results/
+playwright-report/
+.transfer-temp/

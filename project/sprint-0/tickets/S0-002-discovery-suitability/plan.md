@@ -1,6 +1,6 @@
 # S0-002 implementation plan
 
-Version: 1 | Written: 2026-11-15 by Claude | Status: approved by the user 2026-11-15, with deployment answers D1 to D6 recorded below.
+Version: 2 | Written: 2026-11-15 by Claude | Status: approved by the user 2026-11-15, with deployment answers D1 to D6 recorded below.
 
 Implements [spec.md](spec.md) revision 4. The spec defines behaviour; this plan defines how to build and verify it. If the two disagree, the spec wins and the implementer reports the conflict.
 
@@ -80,7 +80,7 @@ Transitions:
 
 **Theme.** White page; `#352253` headings and primary buttons; `#F3EFF8` and `#EAF3FA` panels; `#F58A48` as accent only, never as the sole carrier of meaning and never as text on white (contrast is too low). Buttons at least 44 px tall. Visible focus outline. System font stack. No external fonts, scripts or network calls.
 
-**Server.** Serves `public/` only. Resolves the request path against `public/` and rejects anything that escapes it. Correct content types, `X-Content-Type-Options: nosniff`, `Cache-Control: no-cache`. `/` serves `index.html`; unknown paths return 404. `GET /healthz` returns 200 `ok`. Listens on `0.0.0.0`, port from `PORT`, default 8080. Exports a `createServer()` function so the unit test can start it on an ephemeral port.
+**Server.** Serves `public/` only. Resolves the request path against `public/` and rejects anything that escapes it. Correct content types, `X-Content-Type-Options: nosniff`, `Cache-Control: no-cache`. `/` serves `index.html`; unknown paths return 404. `GET /healthz` returns 200 `ok`. Listens on `0.0.0.0`, port from `PORT`, default 8090 locally (8080 is taken by another project on this machine; Cloud Run supplies `PORT`). Exports a `createServer()` function so the unit test can start it on an ephemeral port.
 
 ## Steps for the implementer
 
@@ -95,7 +95,7 @@ Transitions:
 Rules for the implementer:
 
 - Do not edit anything under `docs/` or `project/`. Report results in the final message; Claude records them.
-- Do not run `git commit`, `git push` or any `gcloud` command.
+- During the build, do not run `git commit`, `git push` or any `gcloud` command. Shipping is a separate step the user triggers after their own testing.
 - Do not add dependencies beyond `@playwright/test`. Do not add features the spec does not list. In particular: no reset control, no undo-override, no notes, no submission or tracking records.
 - If the spec is ambiguous or seems wrong, choose the simplest reading, continue, and list the choice in the final report.
 
@@ -130,17 +130,17 @@ Browser (Playwright, each at 360, 390 and 1280 px wide):
 | A second fresh browser context starts with six in New | REQ-007 |
 | Every action button is reachable and operable by keyboard; buttons are at least 44 px tall | REQ-008 |
 
-## Verification by Claude after the implementer finishes
+## After the implementer finishes
 
-1. Read the diff against this plan and the spec; check nothing outside the file list changed.
-2. Run `npm test` independently and compare with the implementer's report.
-3. Start the server, open the app at phone and desktop sizes, and walk the spec's action table by hand, including empty states and the storage-unavailable notice.
-4. Record stack, files, commands, actual results, discrepancies and anything not tested in [ticket.md](ticket.md) and docs/status.md.
-5. Give the user the local URL for UI review.
+Changed by the user on 2026-11-15: the implementer's own test run stands as the automated check, the user does the remaining testing locally, and the implementing model ships when the user asks.
 
-## Deployment (Claude with the user, after local verification)
+1. Claude records the implementer's reported stack, files, commands, test results, deviations and untested items in [ticket.md](ticket.md) and docs/status.md, labelled as reported by the implementer. Claude does not re-run the tests or walk the app by hand.
+2. Claude gives the user the local run command and URL.
+3. The user tests locally.
 
-Not delegated. Each outward-facing step waits for the user's go-ahead.
+## Deployment (implementing model, when the user asks)
+
+Runs only on the user's request after their local testing.
 
 Answered by the user on 2026-11-15:
 
@@ -155,9 +155,9 @@ Answered by the user on 2026-11-15:
 
 Steps:
 
-1. Confirm the account and project: `gcloud projects describe charity-funding-514818`.
-2. Enable APIs: `gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com --project charity-funding-514818`.
-3. Commit and push per D5.
+1. Already done by Claude on 2026-11-15: project confirmed active with billing enabled; Cloud Run, Cloud Build and Artifact Registry APIs enabled; docs committed locally as the first commit (not pushed).
+2. Commit the application as the second commit.
+3. Push `master` to `origin`.
 4. Deploy: `gcloud run deploy charity-funding --source . --region europe-west1 --project charity-funding-514818 --allow-unauthenticated --max-instances 1 --memory 256Mi`.
 5. Check the HTTPS URL: `/healthz`, then the Playwright suite against the deployed URL.
 6. User does the phone check from the spec. Record the URL, revision and results in the ticket and status.
