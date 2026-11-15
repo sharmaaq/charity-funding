@@ -3,7 +3,7 @@
 - Date: 2026-11-15
 - Type: requirements iteration
 - Agreement: spec revision 4 approved by the user on 2026-11-15, after answering Claude's review questions (resolutions table in the spec).
-- Delivery: implemented locally by Sonnet; awaiting the user's local testing. Not pushed, not deployed.
+- Delivery: deployed to Cloud Run on 2026-11-15; awaiting the user's phone check.
 - Owner: ChatGPT drafted the spec; Claude reviews, plans and delegates implementation (DEC-005).
 - Predecessor: [S0-001](../S0-001-initial-requirements/ticket.md).
 - Specification: [spec.md](spec.md), revision 4. Plan: [plan.md](plan.md), version 2. Evidence: [research.md](research.md).
@@ -40,10 +40,20 @@ Implemented on 2026-11-15 by Sonnet from spec revision 4 and the plan. Everythin
 - Tests run by the implementer with `npm test`: unit 22 passed, 0 failed; Playwright 45 passed, 0 failed (15 each at 360, 390 and 1280 px wide).
 - Deviations: none from the spec or plan reported. Implementation choices: an overridden grant's row shows the override note together with the original reason; after an action, focus moves to the view heading and a live region announces the result with a link; guidance and source links open in a new tab; the desktop header row sits outside the list and is hidden from assistive technology.
 - Not tested: Dockerfile and the deploy command; any browser other than Chromium; a real phone; measured colour contrast; screen readers; a fresh-checkout install; the external guidance links.
-- Not done: application code is uncommitted; nothing is pushed; nothing is deployed. Claude enabled the Cloud Run, Cloud Build and Artifact Registry APIs on `charity-funding-514818` and committed the docs locally (cff3728).
+
+### Deployment, 2026-11-15
+
+- The user tested locally, then committed and pushed (e958f8d on `master`, equal to `origin/master` when checked).
+- Service `charity-funding`, region `europe-west1`, project `charity-funding-514818`, public access, max 1 instance, 256Mi. Revision `charity-funding-00001-94k`.
+- URL: https://charity-funding-36580608208.europe-west1.run.app (also https://charity-funding-4zw3jha7va-ew.a.run.app).
+- Command, run by Claude at the user's direction: `gcloud run deploy charity-funding --source . --region europe-west1 --project charity-funding-514818 --allow-unauthenticated --max-instances 1 --memory 256Mi --quiet`.
+- First two attempts failed: the default compute service account, which runs the build, had no roles and could not read the uploaded source. With the user's approval Claude granted it `roles/run.builder` on the project; the third attempt succeeded.
+- Checked by Claude against the live URL: `/` 200 and contains "YOR Plc"; `/js/fixtures.js` (six grant IDs), `/js/state.js`, `/js/app.js` and `/styles.css` 200 with correct content types; an unknown path returns the app's 404.
+- Discrepancy: `/healthz` returns Google's own 404 on Cloud Run and never reaches the app. Cloud Run's front end reserves that path. It works locally and nothing depends on it. Renaming it (for example to `/health`) is a candidate for the next ticket.
+- Not run: the Playwright suite against the deployed URL (the config has no way to point at an external URL without editing it); the user's phone check.
+- Created in the project as by-products: Artifact Registry repository `cloud-run-source-deploy` and bucket `run-sources-charity-funding-514818-europe-west1`.
 
 ## Next action
 
-1. User tests locally.
-2. On the user's request, the implementing model commits the application, pushes `master` and deploys to Cloud Run per the plan's deployment section.
-3. User does the phone check; the URL, revision and results are recorded here and in docs/status.md.
+1. User does the phone check from the spec against the URL above.
+2. Record the result here and in docs/status.md. Requirement changes arising from the review go into S0-003.

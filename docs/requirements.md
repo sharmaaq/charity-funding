@@ -2,9 +2,9 @@
 
 Last updated: 2026-11-15.
 
-This register is an index. The acceptance criteria live in the current specification, [S0-002 spec.md](../project/sprint-0/tickets/S0-002-discovery-suitability/spec.md) (revision 4), and are not duplicated here. The [original draft](../project/sprint-0/tickets/S0-001-initial-requirements/charity-funding-poc-spec.md) is the historical baseline.
+This register is an index. Acceptance criteria live in the complete proposed current specification, [S1-001 spec.md](../project/sprint-1/tickets/S1-001-discovery-markers/spec.md) (revision 6), carrying forward S0-003 visual requirements. S0-002 revision 4 remains the implemented baseline. The [original draft](../project/sprint-0/tickets/S0-001-initial-requirements/charity-funding-poc-spec.md) is historical.
 
-Agreement: the user approved spec revision 4 on 2026-11-15 after answering review questions Q1 to Q8; the resolutions are tabled in the spec. Implementation waits for approval of the plan.
+Agreement: the user approved spec revision 4 on 2026-11-15 after answering review questions Q1 to Q8; S0-002 has since been implemented and deployed. The user now requests closer visual alignment with the Your Place website. [S0-003 spec.md](../project/sprint-0/tickets/S0-003-visual-theme/spec.md), revision 5, records that visual change. Sprint 1 now adds the user-requested date markers and simulated discovery in revision 6. Its concrete visual defaults await Claude review; the deployed baseline remains S0-002.
 
 ## Sprint 0 register
 
@@ -23,6 +23,7 @@ Agreement: the user approved spec revision 4 on 2026-11-15 after answering revie
 | REQ-011 | Show all / Hide unsuitable filter | Added |
 | REQ-012 | Manager override to suitable | Added |
 | REQ-013 | Fixtures carry sources and reasons; charity named only as YOR Plc | Added |
+| REQ-014 | Reference-style visual evidence, font loading, colour tokens and responsive/contrast validation | Added in S0-003; REQ-008 revised by the same ticket |
 
 ## Requirement record format
 
@@ -37,4 +38,33 @@ For each product requirement, record:
 
 ## Pending clarification
 
-Deployment questions D1 to D6 in the S0-002 plan. The full Discovery field list is deferred to a later ticket.
+Exact reference font families/tokens could not be extracted during S0-003 specification work; screenshot-based defaults and verification instructions are recorded in that ticket. The full Discovery field list remains deferred and is not part of the visual change.
+
+## Sprint 1 register
+
+Source: user's 2026-11-15 Sprint 1 request. Agreed feature scope; detailed defaults remain proposed in the complete S1-001 spec.
+
+| ID | Behaviour | Status |
+| --- | --- | --- |
+| REQ-015 | Compact Upcoming (opening within a week) and Due soon (closing within a month) icon/text markers beside names; no new filters | Requested; date boundaries/clock detailed as defaults |
+| REQ-016 | Top-level Discover button simulates discovery by marking one existing grant New; future background agent remains out of scope | Requested; target/lifetime detailed as defaults |
+| REQ-002 | Allow simulated discovery while keeping six fixed grant IDs and no real discovery integration | Revised by S1-001 |
+| REQ-007 | Persist optional freshness metadata while retaining existing saved decisions | Extended by S1-001 |
+| REQ-008 | Include compact accessible markers within the existing design | Extended by S1-001 |
+| REQ-010 | Validate date boundaries, rediscovery, state preservation and responsive markers | Extended by S1-001 |
+
+Review note: fixture data has no verified opening dates. S1-001 uses a labelled synthetic preview for Upcoming demonstration, without inventing published funder dates. Additional marker criteria await the user.
+
+## Sprint 2 register
+
+Current complete proposed specification: [S2-001 spec.md](../project/sprint-2/tickets/S2-001-organisation-document-store/spec.md), revision 7. Supersedes the current-spec pointer above, retaining the revision 6 baseline with explicit overrides. Source: user request 2026-11-15; feature scope requested, detailed defaults proposed for Claude review.
+
+| ID | Behaviour | Status |
+| --- | --- | --- |
+| REQ-017 | YOR Plc organisation entry and editable overview, Past bids and Documents | Requested; UI/field defaults proposed |
+| REQ-018 | Managed historical bids with outcome, actual files and feedback | Requested; CRUD/schema defaults proposed |
+| REQ-019 | Lightweight batch-upload organisation document collection with optional metadata | Requested; limits/actions proposed |
+| REQ-020 | Original files persisted locally with transactional integrity and honest failure handling | Proposed implementation within browser-only POC |
+| REQ-021 | Source catalogue and original bytes available for future AI integration; labelled synthetic samples | Future-use requirement requested; contract/seeds proposed |
+
+REQ-001/007/008/010/014 extended. Planning/submission and Tracking remain placeholders; historical bids do not populate Tracking. No AI calls or server storage. All acceptance cases are in the complete specification.

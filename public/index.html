@@ -4,23 +4,39 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>YOR Plc - Grant discovery (demo)</title>
+  <link rel="preload" href="/fonts/lilita-one-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <a class="skip" href="#main">Skip to main content</a>
-  <header class="site-header">
-    <div class="wrap">
-      <p class="brand">YOR Plc <span>Grant funding (demo)</span></p>
-      <nav aria-label="Main" id="main-nav"></nav>
-    </div>
-  </header>
-  <div class="banner">
+  <div class="strip">
     <div class="wrap">
       <p><strong>Demo discovery - 15 November 2026 snapshot</strong></p>
       <p>Assessments are demo recommendations for YOR Plc, a demo charity. They are not verified eligibility or a funding promise.</p>
     </div>
   </div>
-  <div class="wrap">
+  <header class="site-header">
+    <div class="wrap">
+      <p class="brand"><span class="wordmark"><span class="wm-a">YOR</span> <span class="wm-b">Plc</span></span> <span class="descriptor">Grant funding (demo)</span></p>
+      <nav aria-label="Main" id="main-nav"></nav>
+    </div>
+  </header>
+  <div class="band">
+    <div class="wrap">
+      <h1 id="view-heading" tabindex="-1">Discovery</h1>
+      <svg class="motif" viewBox="0 0 280 96" aria-hidden="true" focusable="false">
+        <polygon points="0,96 0,52 26,28 52,52 52,96" fill="#D7DB2D"/>
+        <polygon points="60,96 60,38 112,38 112,96" fill="#ED6A53"/>
+        <polygon points="60,38 86,12 112,38" fill="#ED6A53"/>
+        <polygon points="120,96 120,60 150,60 150,96" fill="#87C0CA"/>
+        <polygon points="158,96 158,46 184,18 210,46 210,96" fill="#EA720D"/>
+        <polygon points="218,96 218,70 246,52 274,70 274,96" fill="#87C0CA"/>
+        <polygon points="30,96 30,74 40,74 40,96" fill="#442C86"/>
+        <polygon points="172,96 172,70 196,70 196,96" fill="#442C86"/>
+      </svg>
+    </div>
+  </div>
+  <div class="wrap workspace">
     <p id="storage-notice" class="notice" role="status" hidden>Saving is unavailable in this browser, so your changes will be lost when you close or reload this page.</p>
     <div id="live" class="live" role="status" aria-live="polite"></div>
     <main id="main" tabindex="-1"></main>

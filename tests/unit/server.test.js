@@ -105,3 +105,19 @@ test('honours PORT and binds to 0.0.0.0', async () => {
     child.kill();
   }
 });
+
+test('a bundled font is served as font/woff2 and a licence as text/plain', async () => {
+  const f = await new Promise((resolve, reject) => {
+    http.get({ host: '127.0.0.1', port, path: '/fonts/lilita-one-latin-400-normal.woff2' }, (res) => {
+      let n = 0;
+      res.on('data', (c) => { n += c.length; });
+      res.on('end', () => resolve({ status: res.statusCode, type: res.headers['content-type'], n }));
+    }).on('error', reject);
+  });
+  assert.equal(f.status, 200);
+  assert.equal(f.type, 'font/woff2');
+  assert.ok(f.n > 1000);
+  const l = await get(port, '/fonts/LICENSE-urbanist.txt');
+  assert.equal(l.status, 200);
+  assert.match(l.headers['content-type'], /^text\/plain/);
+});

@@ -43,5 +43,24 @@
 - Decision: ChatGPT drafts specifications. Claude reviews them, and after the user approves the spec, plans the work. After the user approves the plan, Claude hands implementation to another model (typically Sonnet) and verifies the result. Stages and gates are in [workflow.md](workflow.md).
 - Rationale: not stated by the user. Claude's reading: review and planning stay with one model and the user approves each gate before build effort is spent.
 - Supersedes the earlier default in DEC-001's workflow that Claude implements directly.
+- The approval gates in this decision are superseded by DEC-006.
+
+## DEC-006: Tickets run through to deployment by default
+
+- Date: 2026-11-15.
+- Status: agreed.
+- Agreement source: user's instruction to Claude when handing over S0-003: review the ticket, fix it if needed, ask questions only if needed, plan it, have Sonnet execute it, and by default have Sonnet commit, push and deploy as part of each ticket. The user had already struck out the gated pipeline in workflow.md.
+- Decision: a ticket runs from review to a deployed result without separate approvals of the spec or plan. The implementing model tests, records results, commits, pushes and deploys. The user reviews the deployed result.
+- Limits: the implementing model does not change Google Cloud access (IAM), work around a failed push or deploy, or touch another project; it stops and reports.
+- Supersedes the gates in DEC-005. Roles in DEC-005 are unchanged.
 
 No application architecture or stack decision has been agreed yet; one is proposed in the [S0-002 plan](../project/sprint-0/tickets/S0-002-discovery-suitability/plan.md) and becomes a decision when the user approves it.
+
+## DEC-007: Organisation source collection scope
+
+- Date: 2026-11-15.
+- Status: user-requested product scope; storage and detailed UI defaults proposed.
+- Source: user's Sprint 2 Ticket 1 request.
+- Decision: use the top-left YOR Plc organisation entry for general information, managed past bids with actual documents/outcomes/feedback, and a simpler organisation document collection, including regulatory and financial submissions. Preserve this information for later AI-assisted planning/submission.
+- Proposed POC interpretation: real browser-local Blob storage in IndexedDB, no AI ingestion yet; existing grant state unchanged. The user has not separately approved these implementation defaults.
+- Detail: [S2-001 specification](../project/sprint-2/tickets/S2-001-organisation-document-store/spec.md).

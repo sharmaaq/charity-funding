@@ -45,7 +45,7 @@ test('no horizontal page scroll on every route', async ({ page }) => {
   for (const r of ROUTES) {
     await page.goto('/' + r);
     await page.reload();
-    await expect(page.locator('main h2')).toBeVisible();
+    await expect(page.locator('h1')).toBeVisible();
     await expectNoOverflow(page);
   }
   // with content in Planning, Passed and an override present
@@ -62,7 +62,7 @@ test('no horizontal page scroll on every route', async ({ page }) => {
   await expectNoOverflow(page);
   // unknown hash falls back to New
   await page.goto('/#/nonsense');
-  await expect(page.locator('main h2')).toHaveText('Discovery');
+  await expect(page.locator('h1')).toHaveText('Discovery');
   await expectNoOverflow(page);
 });
 

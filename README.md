@@ -57,3 +57,16 @@ gcloud run deploy charity-funding --source . --region europe-west1 --project cha
 ```
 
 This builds from the `Dockerfile` in Cloud Build (Docker is not needed locally). Then check `https://<service-url>/healthz`.
+
+## Fonts and licences
+
+Lilita One (display) and Urbanist (body, weights 600 and 800) are bundled in `public/fonts/` from the `@fontsource` packages, with their SIL Open Font License texts (`LICENSE-lilita-one.txt`, `LICENSE-urbanist.txt`). The page makes no requests to any other origin.
+
+## Test a deployed site
+
+```
+$env:BASE_URL="https://charity-funding-36580608208.europe-west1.run.app"; npm run test:e2e    # PowerShell
+BASE_URL=https://... npm run test:e2e                                                          # bash
+```
+
+With `BASE_URL` set, Playwright starts no local server. Evidence screenshots: `node tests/evidence/capture.mjs <baseUrl> <before|after>`.

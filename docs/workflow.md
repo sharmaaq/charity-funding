@@ -8,40 +8,16 @@ This is the single source of shared workflow rules for charity-funding.
 - Use repository files for durable project knowledge. Chat history and assistant-specific memory are supplementary.
 - Roles (DEC-005). ChatGPT Work defaults to research, requirements and drafting specifications. Claude reviews each specification, plans the implementation, delegates the build to an implementing model and verifies the result. The user may explicitly override these roles for an individual task, including asking either assistant to finish work the other could not complete.
 
-~~## Ticket pipeline
+## Ticket pipeline
 
-Each ticket moves through these stages in order. The user's approval is the gate between them; an assistant does not advance a ticket on its own.
+Default flow for every ticket (DEC-006). It runs straight through; the only stop before shipping is a question Claude genuinely needs answered.
 
 1. **Specify.** ChatGPT (or Claude, if asked) drafts `spec.md` in the ticket folder.
-2. **Review.** Claude reviews the spec against the user's request, the repository and the evidence. Claude fixes clear defects directly and lists anything that changes behaviour or scope as numbered open questions with a recommendation each. The user answers; the answers are folded into the spec.
-3. **Approve the spec.** The user reviews the spec again and asks Claude to plan. A spec marked "ready" by an assistant is not approved.
-4. **Plan.** Claude writes `plan.md` in the ticket folder: stack, files, steps, tests and how each REQ is verified. The user approves it.
-5. **Implement and test.** Claude hands the approved spec and plan to an implementing model (typically Sonnet). The implementer follows the plan, runs the automated tests itself and reports actual results and deviations instead of improvising scope. Claude does not re-run the tests or re-test by hand unless the user asks; it records the implementer's reported results in the ticket and [status.md](status.md), labelled as reported by the implementer.
-6. **User testing.** The user tests the result locally.
-7. **Ship.** When the user asks, the implementing model commits, pushes and deploys. No commit of application code, push or deployment happens before that request.~~
+2. **Review and fix.** When the user asks, Claude reviews the spec against the request, the repository and the evidence, and fixes defects directly. Claude asks the user only when an open point changes behaviour or scope and cannot be settled from the request, the code or the evidence. Otherwise it records what it changed in the ticket and carries on.
+3. **Plan.** Claude writes `plan.md` in the ticket folder: files, steps, tests, how each requirement is verified, and the shipping steps.
+4. **Implement, test and ship.** Claude hands the spec and plan to an implementing model (typically Sonnet). By default that model builds, runs the automated tests, records its results in the ticket and [status.md](status.md), commits, pushes to `master` and deploys to Cloud Run, then checks the live site. Commit, push and deploy are part of every ticket unless the user says otherwise for that ticket.
+5. **Report.** Claude relays the implementer's results to the user, labelled as reported by the implementer. Claude does not re-run the tests or re-test by hand unless the user asks.
+6. **User review.** The user reviews the deployed result; feedback becomes the next ticket.
 
-## Requirements, research and evidence
+The implementing model stops and reports instead of working around a rejected push, a deployment permission failure, anything that would change access (IAM) in Google Cloud, or anything touching another Google Cloud project.
 
-- Distinguish user-agreed requirements from proposals, assumptions and open questions. An assistant suggestion is not an approved decision without user agreement.
-- Give requirements stable identifiers (REQ-001 onward), an explicit agreement status and testable acceptance criteria. Preserve identifiers on revision; do not reuse retired identifiers. Record the source of agreement.
-- Record research sources with URLs and the date checked. Distinguish verified findings from inference and uncertainty. Recheck time-sensitive information before relying on it. For local evidence, record the file path and inspection date instead of inventing a URL.
-- Code and actual test results are evidence of current behaviour; agreed requirements define intended behaviour. Report discrepancies rather than silently rewriting requirements to match implementation.
-- Record significant decisions with stable identifiers (DEC-001 onward), dates, rationale and status: proposed, agreed or superseded. Identify the user agreement for agreed decisions and link superseding decisions when applicable.
-
-## Execution and safe collaboration
-
-- Continue routine work within the requested scope without repeatedly asking for confirmation. Ask when unresolved ambiguity materially changes scope, user-visible behaviour or a significant architectural choice.
-- Before editing shared files, reread their current contents and preserve changes made by the user or the other assistant. Check for intervening changes before writing. If concurrent edits conflict, stop editing the affected file and explain the conflict; do not overwrite it.
-- If repository access is unavailable, clearly label proposed updates as unsaved. Never claim that a file was updated or synchronised when it was not. Do not create a substitute workspace without user instruction.
-- Run checks appropriate to the change and record actual results. Distinguish tests passed, tests failed and tests not run. Do not describe a planned or unexecuted check as passed.
-
-## Documentation and handoff
-
-- Organise sprint baselines and requirement iterations as separate tickets under [project/](../project/README.md). Preserve initial specifications; link subsequent tickets and stable requirement IDs. Maintain the requirements register and sprint index so the current intended behaviour is clear.
-- A specification stays with its ticket: `spec.md`, `research.md` and `plan.md` live in the ticket folder, not at the sprint root or in `docs/` (DEC-003). The sprint README names the current specification.
-- If an assistant stops mid-task (for example at a usage limit), the other assistant first compares the ticket's claims with what is actually on disk. Files and decisions a ticket refers to may not exist yet.
-
-- After meaningful research, decisions or implementation changes, update relevant project documents before ending the response, without waiting for a separate request. Skip updates for casual questions that change nothing.
-- Keep documentation concise and current. Do not append full transcripts or duplicate the same information across documents; link to the authoritative document.
-- Use [project-context.md](project-context.md) for the purpose, users, scope, constraints, architecture and document index; [requirements.md](requirements.md) for intended behaviour and acceptance criteria; [research.md](research.md) for findings and sources; [decisions.md](decisions.md) for significant decisions; and [status.md](status.md) for current progress and handoff.
-- At handoff, briefly report what changed, what was verified, unresolved issues and the next action. Record this information in status.md, including implementation/test evidence, blockers and pending questions, so the next assistant can continue.

@@ -1,0 +1,31 @@
+# S2-001: Organisation information and document store
+
+- Type: requirements iteration
+- Created: 2026-11-15
+- Agreement: user-requested feature scope; detailed defaults proposed for Claude review
+- Delivery: spec draft; not implemented
+- Owner: ChatGPT specifications; Claude review, planning and delegated implementation
+- Predecessor: [S1-001](../../../sprint-1/tickets/S1-001-discovery-markers/ticket.md)
+- Complete specification: [spec.md](spec.md), revision 7
+
+## Context and source
+
+The user requested Sprint 2 Ticket 1: foundation for planning and submission, gathering historical bids (actual files, success/failure and feedback), organisational/regulatory/financial files and general charity information behind the top-left organisation name. Past bids must feel managed; general documents should remain a lightweight file collection. Future AI should be able to use all these sources.
+
+## Requirements and changes
+
+Adds REQ-017 to REQ-021. Extends navigation, browser-local persistence and validation (REQ-001/007/008/010/014). Carries forward the complete revision 6 baseline. Planning/submission and Tracking remain placeholders. Proposed defaults include native IndexedDB, editable profile, structured bid CRUD, batch uploads, file types/limits, synthetic samples and an internal future-source catalogue. No model integration or server storage is proposed.
+
+## Review history
+
+Drafted by ChatGPT on 2026-11-15. Claude review and plan pending. Interpreted “Your PLC” as the agreed YOR Plc name. Repository currently uses a header, not a left sidebar: make that existing top-left brand the entry point, adapting to the latest shell at implementation time.
+
+## Implementation and validation
+
+Inspected startup instructions, requirements/decisions, sprint conventions, revision 6, package.json, public/index.html, public/js/app.js, state.js, fixtures.js and server.js. Existing stack is vanilla JS and Node with node:test/Playwright; no file store or AI service currently exists. No external research needed for this product specification.
+
+Documentation only; no application implementation or application tests. Local links, requirement coverage and whitespace checked during drafting. Existing uncommitted work preserved.
+
+## Handoff
+
+Claude: review and resolve defaults, then write plan.md and continue under docs/workflow.md. Coordinate with the latest S0-003/S1-001 work; use verified visual tokens. Validate original-byte persistence and transaction failures, not just upload UI. Record implementation/test/deployment evidence here and in docs/status.md. No blocking clarification identified during drafting.

@@ -28,6 +28,7 @@ const mainEl = document.getElementById('main');
 const navEl = document.getElementById('main-nav');
 const liveEl = document.getElementById('live');
 const noticeEl = document.getElementById('storage-notice');
+const titleEl = document.getElementById('view-heading');
 
 let keepMessage = false;
 let pendingMessage = null;
@@ -55,6 +56,8 @@ const ACTION_LABELS = {
   markSuitable: 'Mark suitable',
   abandon: 'Abandon',
 };
+const BUTTON_CLASS = { plan: 'btn primary', markSuitable: 'btn lime', pass: 'btn quiet', abandon: 'btn quiet' };
+const AREA_TITLES = { discovery: 'Discovery', planning: 'Planning & submission', tracking: 'Tracking' };
 const ACTION_RESULT = {
   watch: 'watchlist',
   plan: 'planning',
@@ -171,7 +174,7 @@ function grantItem(grant, entry, actionNames) {
   const actions = actionNames.map((a) =>
     h('button', {
       type: 'button',
-      class: a === 'plan' || a === 'markSuitable' ? 'btn primary' : 'btn',
+      class: BUTTON_CLASS[a] || 'btn',
       'data-action': a,
       'aria-label': `${ACTION_LABELS[a]}: ${grant.name}`,
       onclick: () => doAction(grant.id, a),
@@ -180,7 +183,7 @@ function grantItem(grant, entry, actionNames) {
   const eff = effectiveSuitability(grant, entry);
   return h('li', { class: 'grant', 'data-id': grant.id, 'data-suitability': eff },
     h('div', { class: 'c-grant' },
-      h('h3', { text: grant.name }),
+      h('h2', { text: grant.name }),
       h('p', { class: 'funder', text: grant.funder }),
       h('p', { class: 'summary', text: grant.summary }),
       h('a', { class: 'link', href: grant.guidanceUrl, target: '_blank', rel: 'noopener noreferrer' }, `${grant.guidanceLabel} (opens in a new tab)`),
@@ -216,10 +219,6 @@ function grantList(grants, actionsFor) {
   );
 }
 
-function heading(text) {
-  return h('h2', { id: 'view-heading', tabindex: '-1', text });
-}
-
 function renderDiscovery(view) {
   const counts = {};
   for (const v of ['new', 'watchlist', 'passed']) counts[v] = selectView(state, FIXTURES, v).total;
@@ -233,7 +232,7 @@ function renderDiscovery(view) {
           VIEW_LABELS[v], h('span', { class: 'count', 'aria-label': `${counts[v]} grants`, text: String(counts[v]) })))),
   );
 
-  const parts = [h('h2', { id: 'view-heading', tabindex: '-1', text: 'Discovery' }), tabs];
+  const parts = [tabs];
 
   if (filterable) {
     const seg = h('div', { class: 'segmented', role: 'group', 'aria-label': 'Suitability filter', 'data-testid': 'filter' },
@@ -278,13 +277,12 @@ function placeholderNotice() {
 }
 
 function templateSection(title, text) {
-  return h('section', { class: 'template-section' }, h('h3', { text: title }), h('p', { text }));
+  return h('section', { class: 'template-section' }, h('h2', { text: title }), h('p', { text }));
 }
 
 function renderPlanning() {
   const sel = selectView(state, FIXTURES, 'planning');
   const parts = [
-    heading('Planning & submission'),
     placeholderNotice(),
     h('p', null, 'Grants you chose to plan an application for in Discovery appear here. Nothing on this page is submitted anywhere.'),
   ];
@@ -303,7 +301,6 @@ function renderPlanning() {
 
 function renderTracking() {
   return [
-    heading('Tracking'),
     placeholderNotice(),
     h('p', null, 'Applications and funding outcomes will be followed here in a later iteration. There are no records in this demo.'),
     h('div', { class: 'template-grid' },
@@ -336,14 +333,14 @@ function render(opts = {}) {
   if (route.area === 'discovery') parts = renderDiscovery(route.view);
   else if (route.area === 'planning') parts = renderPlanning();
   else parts = renderTracking();
+  titleEl.textContent = AREA_TITLES[route.area];
   mainEl.replaceChildren(...parts);
   updateNotice();
   if (pendingMessage) {
     announce(pendingMessage.text, pendingMessage.hash, pendingMessage.link);
     pendingMessage = null;
   }
-  const headingEl = document.getElementById('view-heading');
-  if (headingEl && opts.focus !== false) headingEl.focus({ preventScroll: true });
+  if (opts.focus !== false) titleEl.focus({ preventScroll: true });
 }
 
 window.addEventListener('hashchange', () => {

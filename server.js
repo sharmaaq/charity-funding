@@ -14,6 +14,7 @@ const TYPES = {
   '.png': 'image/png',
   '.ico': 'image/x-icon',
   '.txt': 'text/plain; charset=utf-8',
+  '.woff2': 'font/woff2',
 };
 
 const HEADERS = { 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-cache' };
