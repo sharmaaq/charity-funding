@@ -10,6 +10,8 @@ Last updated: 2026-11-15.
 
 ## Scope and constraints
 
+- Discovery extension S1-002 adds a manager-editable natural-language brief and AI-style simulated discovery. S1-001 is in progress per user report; reconcile its latest reviewed behaviour. The same saved brief is intended for future manual/background AI discovery; no live AI or scheduler in this ticket. See [S1-002](../project/sprint-1/tickets/S1-002-ai-discovery-brief/spec.md).
+
 - Current stage: S0-002 implemented and deployed; S0-003 specifies the user's requested visual restyle for Claude review. Sprint 1 now specifies date markers and simulated discovery in S1-001 (revision 6). No real discovery agent is in scope. See the sprint indexes for the current proposed specification and deployed baseline.
 - Sprint 0 scope: six fixed grant examples, no AI integration or automated discovery, browser-local state only, phone/desktop browsers, deployed to Cloud Run (project `charity-funding-514818`), source at https://github.com/sharmaaq/charity-funding. Details are in the S0-002 spec and plan; see the requirements register.
 - Assistant responsibilities and task-specific overrides are defined in [workflow.md](workflow.md).

@@ -68,3 +68,12 @@ Current complete proposed specification: [S2-001 spec.md](../project/sprint-2/ti
 | REQ-021 | Source catalogue and original bytes available for future AI integration; labelled synthetic samples | Future-use requirement requested; contract/seeds proposed |
 
 REQ-001/007/008/010/014 extended. Planning/submission and Tracking remain placeholders; historical bids do not populate Tracking. No AI calls or server storage. All acceptance cases are in the complete specification.
+
+## S1-002: AI discovery brief extension
+
+Current Discovery extension: [S1-002 complete spec](../project/sprint-1/tickets/S1-002-ai-discovery-brief/spec.md). User requested 2026-11-15; S1-001 is in progress and its reviewed details take precedence over copied historical defaults where this ticket does not change them. Separate Sprint 2 specifications are unaffected.
+
+- REQ-016: expanded to an editable prefilled natural-language brief and Discover with AI simulated loading/results flow. Future manual/background runs use the same saved brief; no real agent yet.
+- REQ-007: retain the brief locally and preserve existing state; default only when no brief has been saved.
+- REQ-008/REQ-010: accessible responsive panel, submission validation, run snapshot, busy/completion/error behaviour and regression checks.
+- Exact prompt/copy, autosave and short simulated delay are proposed defaults. Existing canned results do not change semantically with prompt edits. Source profile stays YOR Plc in the app.

@@ -51,7 +51,7 @@ Implemented by Claude (Fable 5.2) on 2026-11-15.
 
 **Not tested.** Live comparison with the reference site, real phone devices, browsers other than Chromium.
 
-**Deployment.** Not yet deployed at the time of this commit; result recorded in the following commit.
+**Deployment.** Deployed 2026-11-15 to Cloud Run (project charity-funding-514818, europe-west1), revision charity-funding-00002-82t, 100 percent of traffic. Live checks run: `/` returned 200; a font file returned 200 as font/woff2; styles.css contains #442C86; the full Playwright suite with BASE_URL set to the live URL passed 63 of 63 (phone-360, phone-390, desktop-1280). Not used: /healthz.
 
 ## Verification of this specification task
 
