@@ -1,18 +1,66 @@
-// Usage: node tests/evidence/capture.mjs <baseUrl> <before|after|sprint1> [outDir]
+// Usage: node tests/evidence/capture.mjs <baseUrl> <before|after|sprint1|sprint2> [outDir]
 // Saves <label>-<width>-<scene>.png into the ticket's evidence folder (or outDir).
 import { chromium } from '@playwright/test';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
 const [baseUrl, label, outArg] = process.argv.slice(2);
-if (!baseUrl || !['before', 'after', 'sprint1'].includes(label)) {
-  console.error('Usage: node tests/evidence/capture.mjs <baseUrl> <before|after|sprint1> [outDir]');
+if (!baseUrl || !['before', 'after', 'sprint1', 'sprint2'].includes(label)) {
+  console.error('Usage: node tests/evidence/capture.mjs <baseUrl> <before|after|sprint1|sprint2> [outDir]');
   process.exit(1);
 }
-const outDir = outArg || path.resolve(label === 'sprint1'
+const outDir = outArg || path.resolve(label === 'sprint2'
+  ? 'project/sprint-2/tickets/S2-001-organisation-document-store/evidence'
+  : label === 'sprint1'
   ? 'project/sprint-1/tickets/S1-002-ai-discovery-brief/evidence'
   : 'project/sprint-0/tickets/S0-003-visual-theme/evidence');
 await fs.mkdir(outDir, { recursive: true });
+
+if (label === 'sprint2') {
+  // Organisation area: overview-bids, bid-detail, bid-form, documents, upload-result at 1280, 390 and 360 px.
+  const sizes = { 1280: 800, 390: 844, 360: 740 };
+  const browser2 = await chromium.launch();
+  try {
+    for (const [w, hgt] of Object.entries(sizes)) {
+      for (const scene of ['overview-bids', 'bid-detail', 'bid-form', 'documents', 'upload-result']) {
+        const ctx = await browser2.newContext({ viewport: { width: Number(w), height: hgt } });
+        const page = await ctx.newPage();
+        await page.addInitScript(() => { window.__DEMO_NOW__ = '2026-11-15T10:00:00Z'; });
+        await page.goto(baseUrl + '/#/organisation');
+        await page.waitForSelector('li.bid-row');
+        await page.evaluate(() => document.fonts.ready);
+        if (scene === 'bid-detail' || scene === 'bid-form') {
+          await page.locator('li.bid-row', { hasText: 'Skills for independent living' }).getByRole('link', { name: /View/ }).click();
+          await page.waitForSelector('.two-col');
+          if (scene === 'bid-form') {
+            await page.getByRole('link', { name: 'Edit bid' }).click();
+            await page.waitForSelector('form.org-form');
+          }
+        } else if (scene === 'documents' || scene === 'upload-result') {
+          await page.getByRole('link', { name: /^Documents/ }).click();
+          await page.waitForSelector('li.doc-row');
+          if (scene === 'upload-result') {
+            await page.getByRole('button', { name: /Upload documents/ }).click();
+            await page.getByTestId('doc-file-input').setInputFiles([
+              { name: 'trustees-annual-report.txt', mimeType: 'text/plain', buffer: Buffer.from('Example trustees report text.') },
+              { name: 'macro-tool.exe', mimeType: 'application/octet-stream', buffer: Buffer.from('MZ') },
+            ]);
+            await page.getByRole('button', { name: /Upload 1 document/ }).click();
+            await page.waitForSelector('[data-testid="upload-results"]');
+          }
+        }
+        await page.waitForTimeout(250);
+        const file = path.join(outDir, scene + '-' + w + '.png');
+        await page.screenshot({ path: file, fullPage: true });
+        console.log('saved', file);
+        await ctx.close();
+      }
+    }
+  } finally {
+    await browser2.close();
+  }
+  process.exit(0);
+}
 
 const widths = label === 'before' ? [1280] : [1280, 390, 360];
 const SPRINT1_SCENES = ['brief-idle', 'brief-edited-busy', 'discovery-complete', 'markers-real', 'markers-preview'];

@@ -46,6 +46,16 @@ The Playwright config starts its own server on port 8091 and uses a fresh browse
 - Test hooks, set before the app starts (for example with Playwright `page.addInitScript`): `window.__DEMO_NOW__` (ISO string or milliseconds) fixes the clock used for markers, and `window.__DEMO_RUN_DISCOVERY__` replaces the local discovery simulation. With a fixed clock the midnight refresh timer is not scheduled.
 - Evidence screenshots: `node tests/evidence/capture.mjs <baseUrl> sprint1`.
 
+## Organisation information and document store (Sprint 2)
+
+- Click the YOR Plc name in the header (`#/organisation`) for the editable organisation overview, past funding bids and organisation documents.
+- Files are genuinely uploaded, stored and downloaded, but only in this browser (IndexedDB database `charity-funding.organisation`, schema 1). Nothing is sent to the server. Clearing site data removes them; another browser profile or origin starts with its own sample data. The app never deletes or recreates this database to recover from an error.
+- Limits (constants in `public/js/org/validation.js`): PDF, DOCX, XLSX, CSV, TXT, PNG, JPEG; 10 MiB per file; 100 MiB in total. Browser quota may be lower. These are format checks, not malware scanning.
+- Sample bids and documents are fictional and marked "Synthetic demo example"; they are seeded once, and deleting them keeps them deleted.
+- If IndexedDB cannot be opened, the sample content is shown read-only and every change is disabled. Grant triage (localStorage) is independent.
+- `public/js/org/repository.js` is the only code that touches the stores; `catalogue()` is the source-access boundary for later features. Test hook: `window.__ORG_TEST_HOOKS__` ({ limits, abortNext }), set before the organisation area opens.
+- Storage-heavy browser tests (`tests/e2e/organisation-storage.spec.js`) run in the desktop project only.
+
 ## Layout
 
 - `server.js` static server for `public/` only (404 for anything else, including path traversal).

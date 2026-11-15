@@ -2,6 +2,7 @@ import { FIXTURES } from './fixtures.js';
 import { DEFAULT_BRIEF, runMockDiscovery } from './discovery.js';
 import { isTimingPreview, withPreviewTiming } from './preview.js';
 import { nextChangeAt, timingMarkers } from './timing.js';
+import { createOrganisation, isOrgHash, parseOrgHash } from './org/index.js';
 import {
   applyDiscovery,
   setBrief,
@@ -45,6 +46,7 @@ const briefEl = document.getElementById('brief');
 const briefErrorEl = document.getElementById('brief-error');
 const discoverBtn = document.getElementById('discover-btn');
 const aiStatusEl = document.getElementById('ai-status');
+const brandLink = document.getElementById('brand-link');
 
 let keepMessage = false;
 let pendingMessage = null;
@@ -74,6 +76,7 @@ const ACTION_LABELS = {
 };
 const BUTTON_CLASS = { plan: 'btn primary', markSuitable: 'btn lime', pass: 'btn quiet', abandon: 'btn quiet' };
 const AREA_TITLES = { discovery: 'Discovery', planning: 'Planning & submission', tracking: 'Tracking' };
+const ORG_HOME = '#/organisation';
 const ACTION_RESULT = {
   watch: 'watchlist',
   plan: 'planning',
@@ -382,12 +385,54 @@ function renderNav(route) {
 function currentRoute() {
   const hash = location.hash;
   if (ROUTES[hash]) return ROUTES[hash];
+  const org = isOrgHash(hash) ? parseOrgHash(hash) : null;
+  if (org) return { area: 'organisation', org };
   return ROUTES[DEFAULT_ROUTE];
+}
+
+function isKnownHash(hash) {
+  return Boolean(ROUTES[hash] || (isOrgHash(hash) && parseOrgHash(hash)));
+}
+
+function fallbackHash(hash) {
+  return isOrgHash(hash) ? ORG_HOME : DEFAULT_ROUTE;
+}
+
+// The organisation area (#/organisation...) lives in js/org/ and renders itself into <main>.
+const organisation = createOrganisation({
+  mount: mainEl,
+  titleEl,
+  now,
+  announce: (text) => announce(text),
+  announceNext: (text) => { pendingMessage = { text }; },
+  navigate: (hash) => {
+    if (location.hash === hash) render();
+    else location.hash = hash; // hashchange triggers render
+  },
+});
+
+function setBrandActive(on) {
+  if (on) brandLink.setAttribute('aria-current', 'page');
+  else brandLink.removeAttribute('aria-current');
 }
 
 function render(opts = {}) {
   const route = currentRoute();
   renderNav(route);
+  if (route.area === 'organisation') {
+    clearTimeout(tickTimer);
+    tickTimer = null;
+    setBrandActive(true);
+    panelEl.hidden = true;
+    if (pendingMessage) {
+      announce(pendingMessage.text, pendingMessage.hash, pendingMessage.link);
+      pendingMessage = null;
+    }
+    organisation.show(route.org, { focus: opts.focus !== false });
+    return;
+  }
+  organisation.hide();
+  setBrandActive(false);
   let parts;
   if (route.area === 'discovery') parts = renderDiscovery(route.view);
   else if (route.area === 'planning') parts = renderPlanning();
@@ -450,7 +495,7 @@ briefEl.addEventListener('input', () => {
 window.addEventListener('pagehide', saveBrief);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') saveBrief();
-  else render({ focus: false });
+  else if (currentRoute().area !== 'organisation') render({ focus: false });
 });
 
 function showFreshResult(grantId) {
@@ -511,14 +556,30 @@ function scheduleTick() {
   tickTimer = setTimeout(() => render({ focus: false }), delay);
 }
 
-window.addEventListener('hashchange', () => {
-  if (!ROUTES[location.hash]) {
-    history.replaceState(null, '', DEFAULT_ROUTE);
+let shownHash = null; // the hash of the route currently on screen
+let leaving = false; // a "leave without saving?" dialog is open
+
+window.addEventListener('hashchange', async () => {
+  if (!isKnownHash(location.hash)) {
+    history.replaceState(null, '', fallbackHash(location.hash));
   }
+  if (leaving) return;
+  if (organisation.isDirty() && location.hash !== shownHash) {
+    leaving = true;
+    const leave = await organisation.confirmLeave();
+    leaving = false;
+    if (!leave) {
+      history.replaceState(null, '', shownHash); // stay: the form and its input are untouched
+      return;
+    }
+    organisation.discard();
+  }
+  shownHash = location.hash;
   if (!keepMessage && !pendingMessage) liveEl.replaceChildren();
   keepMessage = false;
   render();
 });
 
-if (!ROUTES[location.hash]) history.replaceState(null, '', DEFAULT_ROUTE);
+if (!isKnownHash(location.hash)) history.replaceState(null, '', fallbackHash(location.hash));
+shownHash = location.hash;
 render({ focus: false });

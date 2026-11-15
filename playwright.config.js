@@ -15,8 +15,9 @@ export default defineConfig({
     baseURL: BASE_URL || `http://127.0.0.1:${PORT}`,
   },
   projects: [
-    { name: 'phone-360', use: viewport(360, 740) },
-    { name: 'phone-390', use: viewport(390, 844) },
+    // Storage-heavy tests (10 MiB uploads, transactions) do not depend on the viewport: desktop only.
+    { name: 'phone-360', use: viewport(360, 740), testIgnore: /organisation-storage/ },
+    { name: 'phone-390', use: viewport(390, 844), testIgnore: /organisation-storage/ },
     { name: 'desktop-1280', use: viewport(1280, 800) },
   ],
   webServer: BASE_URL ? undefined : {
