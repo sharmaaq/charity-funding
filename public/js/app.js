@@ -1,5 +1,10 @@
 import { FIXTURES } from './fixtures.js';
+import { DEFAULT_BRIEF, runMockDiscovery } from './discovery.js';
+import { isTimingPreview, withPreviewTiming } from './preview.js';
+import { nextChangeAt, timingMarkers } from './timing.js';
 import {
+  applyDiscovery,
+  setBrief,
   availableActions,
   applyAction,
   effectiveSuitability,
@@ -10,6 +15,12 @@ import {
 } from './state.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
+
+// Test hooks: a fixed clock and a replaceable discovery runner (set before the app starts).
+const injectedNow = window.__DEMO_NOW__ !== undefined && window.__DEMO_NOW__ !== null ? new Date(window.__DEMO_NOW__) : null;
+const now = () => (injectedNow && !Number.isNaN(injectedNow.getTime()) ? new Date(injectedNow.getTime()) : new Date());
+const runDiscovery = typeof window.__DEMO_RUN_DISCOVERY__ === 'function' ? window.__DEMO_RUN_DISCOVERY__ : runMockDiscovery;
+const previewTiming = isTimingPreview(location.search);
 
 function getStorage() {
   try {
@@ -29,6 +40,11 @@ const navEl = document.getElementById('main-nav');
 const liveEl = document.getElementById('live');
 const noticeEl = document.getElementById('storage-notice');
 const titleEl = document.getElementById('view-heading');
+const panelEl = document.getElementById('ai-panel');
+const briefEl = document.getElementById('brief');
+const briefErrorEl = document.getElementById('brief-error');
+const discoverBtn = document.getElementById('discover-btn');
+const aiStatusEl = document.getElementById('ai-status');
 
 let keepMessage = false;
 let pendingMessage = null;
@@ -83,6 +99,40 @@ function h(tag, attrs, ...children) {
   return el;
 }
 
+const MARKERS = {
+  fresh: { label: 'New', icon: 'M12 2 L14.6 9.4 L22 12 L14.6 14.6 L12 22 L9.4 14.6 L2 12 L9.4 9.4 Z' },
+  upcoming: { label: 'Upcoming', icon: 'M4 6 H20 V20 H4 Z M4 10.5 H20 M8.5 3 V7.5 M15.5 3 V7.5' },
+  dueSoon: { label: 'Due soon', icon: 'M12 3 A9 9 0 1 0 12.01 3 Z M12 7.5 V12.5 L15.5 14.5' },
+};
+
+function markerBadge(kind) {
+  const { label, icon } = MARKERS[kind];
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  const path = document.createElementNS(SVG_NS, 'path');
+  path.setAttribute('d', icon);
+  path.setAttribute('fill', 'none');
+  path.setAttribute('stroke', 'currentColor');
+  path.setAttribute('stroke-width', '2.5');
+  path.setAttribute('stroke-linecap', 'round');
+  path.setAttribute('stroke-linejoin', 'round');
+  svg.append(path);
+  return h('span', { class: `marker marker-${kind}`, 'data-marker': kind }, svg, h('span', { text: label }));
+}
+
+function markersFor(grant) {
+  const t = now();
+  const timed = previewTiming ? withPreviewTiming(grant, t) : grant;
+  const kinds = timingMarkers(timed, t);
+  const out = [];
+  if (state.freshId === grant.id) out.push('fresh');
+  if (kinds.includes('upcoming')) out.push('upcoming');
+  if (kinds.includes('dueSoon')) out.push('dueSoon');
+  return out;
+}
+
 function svgIcon(kind) {
   const svg = document.createElementNS(SVG_NS, 'svg');
   svg.setAttribute('viewBox', '0 0 24 24');
@@ -114,7 +164,8 @@ function updateNotice() {
 
 // ---------- announcements ----------
 function announce(text, hash, linkText) {
-  liveEl.replaceChildren(text + ' ', h('a', { href: hash }, linkText));
+  if (!hash) liveEl.replaceChildren(text);
+  else liveEl.replaceChildren(text + ' ', h('a', { href: hash }, linkText));
 }
 
 function grantById(id) {
@@ -170,7 +221,7 @@ function reasonText(grant, entry) {
   return grant.reason;
 }
 
-function grantItem(grant, entry, actionNames) {
+function grantItem(grant, entry, actionNames, showMarkers = false) {
   const actions = actionNames.map((a) =>
     h('button', {
       type: 'button',
@@ -183,7 +234,9 @@ function grantItem(grant, entry, actionNames) {
   const eff = effectiveSuitability(grant, entry);
   return h('li', { class: 'grant', 'data-id': grant.id, 'data-suitability': eff },
     h('div', { class: 'c-grant' },
-      h('h2', { text: grant.name }),
+      showMarkers
+        ? h('div', { class: 'name-row' }, h('h2', { text: grant.name }), h('span', { class: 'markers' }, markersFor(grant).map(markerBadge)))
+        : h('h2', { text: grant.name }),
       h('p', { class: 'funder', text: grant.funder }),
       h('p', { class: 'summary', text: grant.summary }),
       h('a', { class: 'link', href: grant.guidanceUrl, target: '_blank', rel: 'noopener noreferrer' }, `${grant.guidanceLabel} (opens in a new tab)`),
@@ -210,12 +263,12 @@ function grantItem(grant, entry, actionNames) {
   );
 }
 
-function grantList(grants, actionsFor) {
+function grantList(grants, actionsFor, showMarkers = false) {
   return h('div', { class: 'grants-wrap' },
     h('div', { class: 'grants-head', 'aria-hidden': 'true' },
       h('span', { text: 'Grant' }), h('span', { text: 'Amount and timing' }), h('span', { text: 'Suitability' }), h('span', { text: 'Actions' })),
     h('ul', { class: 'grants', 'aria-label': 'Grants' },
-      grants.map((g) => grantItem(g, state.grants[g.id], actionsFor(g, state.grants[g.id])))),
+      grants.map((g) => grantItem(g, state.grants[g.id], actionsFor(g, state.grants[g.id]), showMarkers))),
   );
 }
 
@@ -232,7 +285,13 @@ function renderDiscovery(view) {
           VIEW_LABELS[v], h('span', { class: 'count', 'aria-label': `${counts[v]} grants`, text: String(counts[v]) })))),
   );
 
-  const parts = [tabs];
+  const parts = [];
+  if (previewTiming) {
+    parts.push(h('p', { class: 'preview-notice', 'data-testid': 'preview-notice' },
+      'Timing preview: the opening and closing dates used for markers on this page are synthetic examples, not funder dates. ',
+      h('a', { href: location.pathname + (location.hash || DEFAULT_ROUTE) }, 'Back to the normal view')));
+  }
+  parts.push(tabs);
 
   if (filterable) {
     const seg = h('div', { class: 'segmented', role: 'group', 'aria-label': 'Suitability filter', 'data-testid': 'filter' },
@@ -249,7 +308,7 @@ function renderDiscovery(view) {
   }
 
   if (sel.visible.length > 0) {
-    parts.push(grantList(sel.visible, (g, e) => availableActions(g, e)));
+    parts.push(grantList(sel.visible, (g, e) => availableActions(g, e), true));
   } else if (sel.hiddenCount === 0) {
     parts.push(emptyState(view));
   }
@@ -334,13 +393,122 @@ function render(opts = {}) {
   else if (route.area === 'planning') parts = renderPlanning();
   else parts = renderTracking();
   titleEl.textContent = AREA_TITLES[route.area];
+  panelEl.hidden = route.area !== 'discovery';
   mainEl.replaceChildren(...parts);
   updateNotice();
   if (pendingMessage) {
     announce(pendingMessage.text, pendingMessage.hash, pendingMessage.link);
     pendingMessage = null;
   }
-  if (opts.focus !== false) titleEl.focus({ preventScroll: true });
+  if (opts.focus !== false && document.activeElement !== briefEl) titleEl.focus({ preventScroll: true });
+  scheduleTick();
+}
+
+// ---------- AI discovery panel (static markup in index.html, updated in place, never re-created) ----------
+const BRIEF_HELP_ID = 'brief-help';
+const SAVE_DELAY_MS = 400;
+let saveTimer = null;
+let busy = false;
+
+briefEl.value = typeof state.brief === 'string' ? state.brief : DEFAULT_BRIEF;
+
+function saveBrief() {
+  clearTimeout(saveTimer);
+  saveTimer = null;
+  const text = briefEl.value;
+  if (text === (typeof state.brief === 'string' ? state.brief : DEFAULT_BRIEF)) return;
+  commit(setBrief(state, text));
+  updateNotice();
+}
+
+function showBriefError(message) {
+  briefErrorEl.textContent = message;
+  briefErrorEl.hidden = !message;
+  if (message) {
+    briefEl.setAttribute('aria-invalid', 'true');
+    briefEl.setAttribute('aria-describedby', BRIEF_HELP_ID + ' brief-error');
+  } else {
+    briefEl.removeAttribute('aria-invalid');
+    briefEl.setAttribute('aria-describedby', BRIEF_HELP_ID);
+  }
+}
+
+function setBusy(on) {
+  busy = on;
+  discoverBtn.disabled = on;
+  briefEl.readOnly = on;
+  aiStatusEl.replaceChildren();
+  if (on) aiStatusEl.append(h('span', { class: 'spinner', 'aria-hidden': 'true' }), h('span', { text: 'Discovering grants...' }));
+}
+
+briefEl.addEventListener('input', () => {
+  if (busy) return;
+  showBriefError('');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveBrief, SAVE_DELAY_MS);
+});
+window.addEventListener('pagehide', saveBrief);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') saveBrief();
+  else render({ focus: false });
+});
+
+function showFreshResult(grantId) {
+  pendingMessage = { text: 'Demo discovery complete - 1 grant marked as new.' };
+  if (location.hash !== VIEW_HASH.new) {
+    keepMessage = true;
+    location.hash = VIEW_HASH.new; // hashchange triggers render
+  } else {
+    render();
+  }
+  const el = document.querySelector('li.grant[data-id="' + grantId + '"]');
+  if (el) el.scrollIntoView({ block: 'nearest' });
+}
+
+async function onDiscover() {
+  if (busy) return;
+  saveBrief();
+  const brief = briefEl.value;
+  if (brief.trim() === '') {
+    showBriefError('Enter your discovery criteria first.');
+    briefEl.focus();
+    return;
+  }
+  showBriefError('');
+  setBusy(true);
+  let failed = false;
+  try {
+    await runDiscovery({ brief, delayMs: 1000 });
+  } catch {
+    failed = true;
+  }
+  setBusy(false);
+  if (failed) {
+    announce('Discovery could not be completed. Please try again.');
+    discoverBtn.focus();
+    return;
+  }
+  const result = applyDiscovery(state, FIXTURES);
+  if (result.grantId === null) {
+    announce('No demo grant available to rediscover. Restore a suitable grant to New to repeat the demo.');
+    discoverBtn.focus();
+    return;
+  }
+  commit(result.state);
+  updateNotice();
+  showFreshResult(result.grantId);
+}
+discoverBtn.addEventListener('click', onDiscover);
+
+// ---------- marker refresh at the next London midnight or closing instant ----------
+let tickTimer = null;
+function scheduleTick() {
+  clearTimeout(tickTimer);
+  tickTimer = null;
+  if (injectedNow) return; // a fixed test clock never advances
+  const t = now();
+  const delay = Math.min(Math.max(nextChangeAt(FIXTURES, t).getTime() - t.getTime() + 250, 1000), 2 ** 31 - 1);
+  tickTimer = setTimeout(() => render({ focus: false }), delay);
 }
 
 window.addEventListener('hashchange', () => {

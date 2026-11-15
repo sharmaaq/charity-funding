@@ -1,12 +1,22 @@
 # Current status and handoff
 
+## Latest handoff: S3-001 — 2026-11-15 (ChatGPT)
+
+- Specified [S3-001](../project/sprint-3/tickets/S3-001-automated-submission/ticket.md): Garfield Weston Regular Grants core-support questionnaire, attributed prefill and source-store integration, immutable PDF/file package, bounded internal API, real Playwright-controlled demonstration, receipts/Tracking and detailed live adapter readiness/mapping contract.
+- Current complete proposed Sprint 2 spec is revision 8. Includes S2-001 and S1-002 baselines with explicit precedence; earlier status entries below remain evidence for their own tickets.
+- Live limitation: no verified applicant-facing submission API or authenticated Garfield Weston form; the 2025 portal supersedes old guidance. Controlled demo must work end to end; public live mode stays disabled. No real accounts, funder drafts or submissions created.
+- Claude next: reconcile in-progress S2-001 and Discovery work, review proposed defaults, write ticket-local plan.md, implement/test/ship controlled demo under shared workflow. Report UI/package, document integration, demo automation and live readiness separately. Do not replace browser execution with a timer or invent live selectors.
+- Documentation task only; application code unchanged, application tests not run. All local Markdown links resolved across ten new/updated documents; REQ-022 through REQ-028 and both expanded baselines checked; git diff --check passed. Other work appeared concurrently in S1-002/S2-001 ticket records and a document-store mockup; preserved untouched. No commit/push/deployment performed by ChatGPT in this task.
+
 Last updated: 2026-11-15 (Claude: S0-003 reviewed and planned; ChatGPT's S1-001 notes preserved).
 
 ## Progress
 
-- [S1-002](../project/sprint-1/tickets/S1-002-ai-discovery-brief/ticket.md) specified: editable prefilled discovery brief, local persistence and simulated AI run. S1-001 is in progress per the user (2026-11-15); its final reviewed behaviour may differ from the draft below. Claude should reconcile that work before applying S1-002. No application changes or deployment by this specification task. Separate Sprint 2 work is unaffected.
+- S1-002 design preview created at repository-root discovery-brief-preview.html at the user's request before implementation handoff. User visual review pending. Preview interaction checks passed in installed headless Chrome; no served application changes. See S1-002 ticket for scope and evidence.
 
-- [S1-001](../project/sprint-1/tickets/S1-001-discovery-markers/ticket.md) drafted with complete revision 6: compact Upcoming/Due soon markers and a simulated Discover button. User-requested scope recorded; calendar boundaries, rediscovery target and badge lifetime are proposed defaults. No application implementation or deployment. Current complete proposed spec is S1-001; S0-003 remains a separate visual ticket.
+- [S1-002](../project/sprint-1/tickets/S1-002-ai-discovery-brief/ticket.md) implemented with S1-001 on 2026-11-15 (Claude): editable prefilled brief, local persistence, simulated Discover run. Local tests pass (unit 54, Playwright 126); evidence screenshots in the ticket. Deployment: pending.
+
+- [S1-001](../project/sprint-1/tickets/S1-001-discovery-markers/ticket.md) implemented with S1-002 on 2026-11-15 (Claude): Upcoming and Due soon markers with a labelled ?preview=timing overlay; its own Discover button was superseded by the S1-002 panel. Local tests pass. Deployment: pending.
 
 - [S0-003](../project/sprint-0/tickets/S0-003-visual-theme/ticket.md): visual restyle implemented (Lilita One and Urbanist bundled, purple and lime theme, title band with roofline motif). Committed and pushed. Deployed to Cloud Run as revision charity-funding-00002-82t (100 percent of traffic).
 
@@ -54,3 +64,5 @@ S0-002 remains the implemented baseline and its spec is unchanged. S1-001 revisi
 - Claude next: review latest tree and defaults, write ticket-local plan.md, then follow shared implementation/shipping workflow. Coordinate with S0-003/S1-001; do not infer they have shipped from this newer spec.
 - Documentation-only work; application files unchanged and application tests not run. Existing unrelated changes preserved. Revision 7 is now the current complete proposed spec; delivery evidence above remains historical/current as independently recorded.
 - Verification: local Markdown links resolve across all eight new/updated documents; revision 7 contains REQ-001 through REQ-021. Scoped tracked-document diff check passed. Repository-wide diff check reports an unrelated trailing blank line in docs/workflow.md; left untouched. Other application/test files changed concurrently during this task; no such files were edited by ChatGPT.
+
+- S2-001 visual follow-up: interactive mockups saved in its ticket folder for user review before Claude implementation. Includes overview, past bids/detail, document list/upload and editing layouts. JavaScript syntax checked; browser rendering could not be verified (Chromium missing; Edge launch failed). No app code changed or deployment performed.

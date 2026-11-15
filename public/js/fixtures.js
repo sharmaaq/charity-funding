@@ -1,4 +1,7 @@
 // The only place grant data lives. Demo data, fixed snapshot of 15 November 2026.
+// Optional timing fields (used only for the Upcoming / Due soon markers, never parsed from the timing text):
+//   opensOn YYYY-MM-DD (London date), closesOn YYYY-MM-DD (London date), closesAt ISO instant with offset.
+import { validateTiming } from './timing.js';
 
 export const PROFILE = {
   name: 'YOR Plc',
@@ -48,6 +51,7 @@ export const FIXTURES = [
     funder: 'School for Social Entrepreneurs',
     amount: 'Up to £10,000 plus learning',
     timing: 'Original snapshot extension to noon UK time, 17 November 2026',
+    closesAt: '2026-11-17T12:00:00+00:00',
     summary:
       'A funded learning programme for organisations growing their social impact, with a housing insecurity and homelessness theme.',
     guidanceUrl: 'https://www.the-sse.org/programme/the-dps-social-commitment-programme-scale/',
@@ -68,6 +72,7 @@ export const FIXTURES = [
     funder: 'Help the Homeless',
     amount: 'Up to £5,000',
     timing: 'Next quarterly deadline 20 December 2026, 17:00',
+    closesAt: '2026-12-20T17:00:00+00:00',
     summary: 'Small capital grants for homelessness charities. No core costs or salaries.',
     guidanceUrl: 'https://www.help-the-homeless.org.uk/applying-for-funding',
     guidanceLabel: 'Criteria',
@@ -82,6 +87,7 @@ export const FIXTURES = [
     funder: 'St Martin-in-the-Fields Charity',
     amount: 'Up to £5,000 block grant, up to £500 per person',
     timing: 'Published closing date 27 November 2026, 17:00',
+    closesAt: '2026-11-27T17:00:00+00:00',
     summary: 'Grants to help people keep or move into accommodation.',
     guidanceUrl: 'https://smitfc.org/sustaining-accommodation-fund/',
     guidanceLabel: 'Fund page',
@@ -111,3 +117,7 @@ export const FIXTURES = [
     ],
   },
 ];
+
+export function validateFixtureTiming(grants = FIXTURES) {
+  return validateTiming(grants);
+}

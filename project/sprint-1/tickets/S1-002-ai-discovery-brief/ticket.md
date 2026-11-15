@@ -3,7 +3,7 @@
 - Created: 2026-11-15
 - Type: Discovery requirements iteration
 - Agreement: editable prefilled natural-language brief and AI-style simulated discovery requested by user; exact copy and interaction defaults proposed
-- Delivery: specified; Claude review/implementation pending
+- Delivery: reviewed and planned by Claude 2026-11-15 ([plan.md](plan.md)); being built together with S1-001 by the implementing model
 - Predecessor: [S1-001](../S1-001-discovery-markers/ticket.md), in progress per user report; final reviewed details may differ from its draft
 - Complete specification: [spec.md](spec.md), S1-002 draft 1
 
@@ -25,6 +25,24 @@ Default decisions: autosave locally; submit captures the latest brief; brief edi
 
 ## Review and implementation evidence
 
-Claude review pending. Application tests not run for this documentation-only change. Record the final predecessor revision used, any spec corrections, implementation, test results and deployment evidence here under docs/workflow.md.
+Claude review, 2026-11-15: S1-001 had not been implemented (the "in progress" note was not reflected in the code), so both tickets are delivered by one build from this spec. Decisions R1 to R5 are tabled at the top of the spec; no requirement changed and no question needed the user. The preview file named below is not in the repository.
+
+### Implementation and validation
+
+Implemented by Claude on 2026-11-15 together with S1-001 (REQ-015 and REQ-016). Deployment results are recorded under "Shipping" below.
+
+What changed: new modules `public/js/timing.js`, `preview.js`, `discovery.js`; `state.js` gains optional `freshId` and `brief` (storage key and version 1 unchanged, older saved data loads intact), `discoveryCandidate`, `applyDiscovery`, `setBrief`, and `applyAction` clears `freshId` on a real action on that grant; the AI discovery panel is static markup in `index.html` updated in place by `app.js` (the textarea is never recreated), so focus and caret survive list re-renders; markers, preview notice and midnight timer in `app.js`; styles in `styles.css`; README notes; Sprint 1 evidence scenes in `tests/evidence/capture.mjs`.
+
+Behaviour notes: the brief autosaves 400 ms after typing and is also flushed on Discover and when the page is hidden; an emptied brief stays empty after reload; empty submit shows the linked message and changes nothing; double clicks give one run; the busy state is memory only; a replaceable runner (`window.__DEMO_RUN_DISCOVERY__`) and clock (`window.__DEMO_NOW__`) exist for tests. Plan and spec agreed; no conflict found.
+
+Validation run locally: unit 54 of 54 pass; Playwright 126 of 126 pass (63 existing, unchanged, plus 63 new across phone-360, phone-390 and desktop-1280). No existing test was edited. The new tests cover defaults, persistence including line breaks and reload, caret retention, validation, busy state, single run, no-candidate, failure, preference and override survival, no requests leaving the origin, no run on load, keyboard use, overflow and badge bounds, plus the timing and state unit cases listed in the plan.
+
+Evidence: [evidence folder](evidence/) holds brief-idle, brief-edited-busy, discovery-complete, markers-real and markers-preview at 1280, 390 and 360 px (clock fixed at 15 November 2026). Viewed: the panel is compact (two columns at 1280, stacked on phones), badges wrap under long names and sit inside their row at 360 px, and the busy state shows the spinner with the button disabled. Weak points: the desktop textarea shows about six lines of a long default brief and scrolls for the rest; at 360 px the existing Plan application button label wraps to three lines (existing S0-003 behaviour, not changed here).
 
 Documentation verification: local Markdown links across the seven new/updated documents resolve; git diff --check passed. Verified that the complete spec contains one REQ-016 section and carries Urbanist from the reviewed S0-003 spec. Application tests not run.
+
+## Interactive design preview (2026-11-15)
+
+User requested a mock before asking Claude to implement S1-002. Preview source: discovery-brief-preview.html at repository root; not served application code. Shows editable brief, busy and completed discovery states, sample rows and suitability filtering. Existing row actions are omitted for focus; this does not remove them from the specification. Preview edits are session-only. User design review pending; no approval inferred.
+
+Validation: JavaScript syntax passed; headless installed Chrome via Playwright passed discovery-result highlighting, suitability filtering, 390px overflow and empty-brief validation. Bundled Playwright browser was unavailable, so installed Chrome was used. No application implementation or deployment.

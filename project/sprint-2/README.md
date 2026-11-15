@@ -1,11 +1,11 @@
 # Sprint 2: Planning and submission foundations
 
-Status: first ticket specified; implementation pending.
+Status: S2-001 reviewed and planned; queued for implementation after Sprint 1.
 
-Current complete proposed specification: [S2-001 spec.md](tickets/S2-001-organisation-document-store/spec.md), revision 7, carrying forward revision 6 with explicit Sprint 2 overrides. Existing delivery status remains in [shared status](../../docs/status.md).
+Current specification: [S2-001 spec.md](tickets/S2-001-organisation-document-store/spec.md), revision 7 as reviewed, with a [plan](tickets/S2-001-organisation-document-store/plan.md). Delivery status is in [shared status](../../docs/status.md).
 
 | Ticket | Scope | Agreement | Delivery |
 | --- | --- | --- | --- |
-| [S2-001](tickets/S2-001-organisation-document-store/ticket.md) | Organisation overview, managed past bids and lightweight document store | User-requested scope; detailed defaults proposed | Spec draft |
+| [S2-001](tickets/S2-001-organisation-document-store/ticket.md) | Organisation overview, managed past bids and lightweight document store | User-requested scope; defaults settled in Claude's review | Planned; queued behind Sprint 1 |
 
-This ticket builds the source collection for future AI-assisted planning/submission. It does not implement AI processing or the submission workflow. Next ticket: S2-002.
+S2-001 builds the source collection. [S3-001](../sprint-3/README.md) in Sprint 3 uses it for application preparation and a controlled submission demonstration (it was first drafted here as S2-002 and moved). Next ticket: S2-002.

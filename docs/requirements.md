@@ -77,3 +77,21 @@ Current Discovery extension: [S1-002 complete spec](../project/sprint-1/tickets/
 - REQ-007: retain the brief locally and preserve existing state; default only when no brief has been saved.
 - REQ-008/REQ-010: accessible responsive panel, submission validation, run snapshot, busy/completion/error behaviour and regression checks.
 - Exact prompt/copy, autosave and short simulated delay are proposed defaults. Existing canned results do not change semantically with prompt edits. Source profile stays YOR Plc in the app.
+
+## S3-001: Guided application and automated submission demonstration
+
+Current complete proposed Sprint 2 spec: [S3-001 revision 8](../project/sprint-3/tickets/S3-001-automated-submission/spec.md). Source: user request 2026-11-15. Requested product scope; funder choice/controlled-target architecture and detailed defaults are proposed. This replaces earlier Planning/Tracking placeholder exclusions for G-001 only and preserves the S1-002 Discovery extension.
+
+| ID | Behaviour | Status |
+| --- | --- | --- |
+| REQ-005/006 | G-001 preparation and demo receipts in Tracking; no fabricated real submitted/award status | Revised by requested scope |
+| REQ-007/020/021 | Local draft/package/receipt storage, catalogue integration and expressly initiated temporary server processing | Proposed extension |
+| REQ-022 | Central schema-driven questionnaire, prefill, missing items and full manager review | Requested; fields/defaults proposed |
+| REQ-023 | Source attribution, conflicts, manual document evidence and synthetic/example separation | Proposed fulfilment of requested document reuse |
+| REQ-024 | Immutable reviewed package, actual proposal PDF, attachment integrity and validation | Requested automation prerequisite; contract proposed |
+| REQ-025 | Our bounded API and actual Playwright transfer to controlled portal | Requested demonstration; architecture proposed |
+| REQ-026 | Duplicate protection, interruption handling, verified demo receipt and local Tracking | Proposed lifecycle requirements |
+| REQ-027 | Live portal mapping/readiness, human intervention, authority and reconciliation | Live feasibility unverified; detailed contract specified |
+| REQ-028 | UI/package/API/runner/failure/deployment evidence and preserved regression behaviour | Required validation; cases specified |
+
+No verified public applicant submission API was found. The selected current route is Blackbaud browser portal automation, conditional on authenticated mapping for real operation. All REST routes in S3-001 are ours, not alleged funder endpoints. Source evidence is ticket-local research.md.

@@ -41,7 +41,31 @@ export function applyAction(state, fixtures, grantId, action) {
   if (!grant || !entry) return state;
   if (!availableActions(grant, entry).includes(action)) return state;
   const next = action === 'markSuitable' ? { ...entry, override: true } : { ...entry, workflow: TARGET[action] };
-  return { ...state, grants: { ...state.grants, [grantId]: next } };
+  const result = { ...state, grants: { ...state.grants, [grantId]: next } };
+  if (state.freshId === grantId) delete result.freshId; // the manager acted on the freshly discovered grant
+  return result;
+}
+
+// The grant a demo discovery run marks as New: the first in fixture order that is still
+// in the New workflow state and not effectively unsuitable.
+export function discoveryCandidate(state, fixtures) {
+  const found = fixtures.find((g) => {
+    const e = state.grants[g.id];
+    return e && e.workflow === 'new' && effectiveSuitability(g, e) !== 'unsuitable';
+  });
+  return found ? found.id : null;
+}
+
+export function applyDiscovery(state, fixtures) {
+  const grantId = discoveryCandidate(state, fixtures);
+  if (!grantId) return { state, grantId: null };
+  if (state.freshId === grantId) return { state, grantId };
+  return { state: { ...state, freshId: grantId }, grantId };
+}
+
+export function setBrief(state, text) {
+  if (state.brief === text) return state;
+  return { ...state, brief: text };
 }
 
 export function setHideUnsuitable(state, value) {
@@ -88,7 +112,10 @@ export function load(storage, fixtures) {
       for (const g of fixtures) {
         grants[g.id] = { workflow: data.grants[g.id].workflow, override: data.grants[g.id].override };
       }
-      return { state: { version: VERSION, hideUnsuitable: data.hideUnsuitable, grants }, storageAvailable: true };
+      const next = { version: VERSION, hideUnsuitable: data.hideUnsuitable, grants };
+      if (typeof data.freshId === 'string' && grants[data.freshId]) next.freshId = data.freshId;
+      if (typeof data.brief === 'string') next.brief = data.brief;
+      return { state: next, storageAvailable: true };
     }
   } catch {
     // fall through: unreadable data is discarded

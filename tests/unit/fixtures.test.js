@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { FIXTURES } from '../../public/js/fixtures.js';
+import { FIXTURES, validateFixtureTiming } from '../../public/js/fixtures.js';
 
 const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'public');
 
@@ -47,4 +47,11 @@ test('no file under public/ names the real charity or its registration number', 
       assert.ok(!text.includes(bad.toLowerCase()), `${path.relative(publicDir, f)} contains a forbidden string`);
     }
   }
+});
+
+test('timing fields are valid and no grant opens after it closes', () => {
+  assert.deepEqual(validateFixtureTiming(), []);
+  assert.deepEqual(validateFixtureTiming([{ id: 'X', opensOn: '2026-12-01', closesOn: '2026-11-01' }]), ['X opens after it closes']);
+  assert.equal(validateFixtureTiming([{ id: 'X', closesAt: '17 November' }]).length, 1);
+  assert.equal(validateFixtureTiming([{ id: 'X', opensOn: '2026-02-31' }]).length, 1);
 });

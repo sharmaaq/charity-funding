@@ -40,12 +40,20 @@ npm run test:e2e      # Playwright at 360, 390 and 1280 px wide
 
 The Playwright config starts its own server on port 8091 and uses a fresh browser context for every test.
 
+## Discovery extras (Sprint 1)
+
+- `?preview=timing` overlays synthetic opening and closing dates (G-001 opens in 3 days; G-002 opens in 2 and closes in 20; G-003 closes in 10) so the Upcoming and Due soon markers can be seen at any time. A notice says the dates are synthetic; displayed timing text and saved data never change. It is not linked from the normal UI.
+- Test hooks, set before the app starts (for example with Playwright `page.addInitScript`): `window.__DEMO_NOW__` (ISO string or milliseconds) fixes the clock used for markers, and `window.__DEMO_RUN_DISCOVERY__` replaces the local discovery simulation. With a fixed clock the midnight refresh timer is not scheduled.
+- Evidence screenshots: `node tests/evidence/capture.mjs <baseUrl> sprint1`.
+
 ## Layout
 
 - `server.js` static server for `public/` only (404 for anything else, including path traversal).
 - `public/js/fixtures.js` the six grants (the only place grant data lives).
 - `public/js/state.js` pure state logic and storage adapter (no DOM access; also imported by the unit tests).
 - `public/js/app.js` routing and rendering.
+- `public/js/timing.js` pure Europe/London date logic for the Upcoming / Due soon markers (takes `now` as a parameter).
+- `public/js/preview.js` the `?preview=timing` overlay; `public/js/discovery.js` the default brief and the local discovery simulation.
 - `tests/unit`, `tests/e2e` tests.
 
 ## Deploy to Google Cloud Run

@@ -3,7 +3,7 @@
 - Type: requirements iteration
 - Created: 2026-11-15
 - Agreement: user-requested feature scope; detailed defaults proposed for Claude review
-- Delivery: spec draft; not implemented
+- Delivery: reviewed and planned by Claude 2026-11-15 ([plan.md](plan.md)); queued behind Sprint 1
 - Owner: ChatGPT specifications; Claude review, planning and delegated implementation
 - Predecessor: [S1-001](../../../sprint-1/tickets/S1-001-discovery-markers/ticket.md)
 - Complete specification: [spec.md](spec.md), revision 7
@@ -18,7 +18,7 @@ Adds REQ-017 to REQ-021. Extends navigation, browser-local persistence and valid
 
 ## Review history
 
-Drafted by ChatGPT on 2026-11-15. Claude review and plan pending. Interpreted “Your PLC” as the agreed YOR Plc name. Repository currently uses a header, not a left sidebar: make that existing top-left brand the entry point, adapting to the latest shell at implementation time.
+Drafted by ChatGPT on 2026-11-15. Claude reviewed it on 2026-11-15: the spec stands as drafted; decisions R1 to R7 at the top of the spec settle the points left to review, and [plan.md](plan.md) is written. Interpreted “Your PLC” as the agreed YOR Plc name. Repository currently uses a header, not a left sidebar: make that existing top-left brand the entry point, adapting to the latest shell at implementation time.
 
 ## Implementation and validation
 
@@ -29,3 +29,9 @@ Documentation only; no application implementation or application tests. Local li
 ## Handoff
 
 Claude: review and resolve defaults, then write plan.md and continue under docs/workflow.md. Coordinate with the latest S0-003/S1-001 work; use verified visual tokens. Validate original-byte persistence and transaction failures, not just upload UI. Record implementation/test/deployment evidence here and in docs/status.md. No blocking clarification identified during drafting.
+
+## Visual review mockups — 2026-11-15
+
+User requested mockups before asking Claude to implement. [mockups.html](mockups.html) preserves the interactive design preview: organisation overview, bid list/detail, Documents, upload, bid form and profile/document editing. Uses current Lilita One/Urbanist styling and purple/lime palette. All data is illustrative; actions are local preview interactions, not persistence or uploads. Detailed forms are representative visual layouts, not replacements for the full specification.
+
+JavaScript syntax checked. Browser-render verification attempted but unavailable: bundled Chromium missing; installed Edge exited during sandbox launch. No screenshot or successful responsive browser-test claim. User visual review pending; this preview is not design approval or an implementation.

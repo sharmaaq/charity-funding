@@ -64,3 +64,14 @@ No application architecture or stack decision has been agreed yet; one is propos
 - Decision: use the top-left YOR Plc organisation entry for general information, managed past bids with actual documents/outcomes/feedback, and a simpler organisation document collection, including regulatory and financial submissions. Preserve this information for later AI-assisted planning/submission.
 - Proposed POC interpretation: real browser-local Blob storage in IndexedDB, no AI ingestion yet; existing grant state unchanged. The user has not separately approved these implementation defaults.
 - Detail: [S2-001 specification](../project/sprint-2/tickets/S2-001-organisation-document-store/spec.md).
+
+## DEC-008: One-funder automated submission demonstration
+
+- Date: 2026-11-15.
+- Status: user-requested product scope; selection and architecture proposed for Claude review.
+- Source: user request for a detailed specification covering central prefilled questions and the actual submission automation for one of the three suitable funders.
+- Selection: G-001 Garfield Weston Regular Grants, one-year core support. Choice is based on the published proposal/accounts workflow and rolling route, not certified eligibility.
+- Proposed delivery: browser-local preparation/packages/receipts, temporary request-scoped server processing and genuine Playwright execution against a controlled portal. No public live-submission capability until current authenticated mapping, applicant authority and reliable reconciliation are established.
+- Rationale: there is no verified applicant submission API/current signed-in schema. Do not invent endpoints or claim demo delivery reached Garfield Weston. Document the full live adapter activation contract alongside executable demo requirements.
+- Scope override: REQ-005/006 placeholders and S2-001's no-transmission rule are narrowly revised for this flow. No accounts, shared durable backend, live AI or automatic submission authority added.
+- Detail: [S3-001 specification](../project/sprint-3/tickets/S3-001-automated-submission/spec.md) and [research](../project/sprint-3/tickets/S3-001-automated-submission/research.md).

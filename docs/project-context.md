@@ -39,3 +39,10 @@ Current implementation is static HTML/CSS/JavaScript in public/, served by a Nod
 - [Sprint 2](../project/sprint-2/README.md) starts with S2-001: organisation overview, historical bids and a document store reached through the YOR Plc brand.
 - Current complete proposed specification is [S2-001 revision 7](../project/sprint-2/tickets/S2-001-organisation-document-store/spec.md), carrying forward revision 6. This is specification status, not delivery status.
 - Proposed storage adds native browser IndexedDB for real file bytes and organisation records; existing grant localStorage remains intact. No backend/AI integration. Actual planning/submission behaviour is left to later tickets.
+
+## S3-001 submission specification update — 2026-11-15
+
+- Current complete proposed Sprint 2 specification is [S3-001 revision 8](../project/sprint-3/tickets/S3-001-automated-submission/spec.md), carrying forward S2-001 and S1-002. Earlier current-spec/status statements describe their respective tickets, not new delivery evidence.
+- User requests one funder's automated submission demonstration plus a detailed UI/automation specification. Selected G-001 Garfield Weston Regular Grants, one-year core support. Central questions, attributed prefill, actual proposal PDF/package, real Playwright automation against a controlled test portal, and locally persisted demo receipts.
+- Proposed architecture adds temporary request-scoped Node/Chromium processing through our own API; durable drafts/files/receipts remain browser-local. This narrowly overrides the earlier no-server-file-transmission scope after an explicit manager-initiated transfer. No live AI, accounts or shared backend storage.
+- Research verified current public guidance and the 2025 portal migration, but no applicant-authorised submission API/current authenticated form. The public app's live capability stays disabled; spec defines the exact discovery/mapping/authority/receipt requirements for a real connector. Do not equate demo success with delivery to a funder.

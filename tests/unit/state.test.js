@@ -12,6 +12,9 @@ import {
   selectView,
   load,
   save,
+  applyDiscovery,
+  discoveryCandidate,
+  setBrief,
 } from '../../public/js/state.js';
 
 const grantOf = (id) => FIXTURES.find((g) => g.id === id);
@@ -228,4 +231,101 @@ test('missing, corrupt, wrong-version, incomplete data and throwing storage all 
   assert.equal(save(throwingStorage, init), false);
   assert.equal(load(null, FIXTURES).storageAvailable, false);
   assert.equal(save(null, init), false);
+});
+
+// ---------- Sprint 1: discovery freshness and the saved brief ----------
+
+test('fresh state has no freshId and no brief', () => {
+  const s = initialState(FIXTURES);
+  assert.equal('freshId' in s, false);
+  assert.equal('brief' in s, false);
+});
+
+test('applyDiscovery on a fresh state picks G-001; repeating keeps one freshId and six grants', () => {
+  let s = initialState(FIXTURES);
+  const r = applyDiscovery(s, FIXTURES);
+  assert.equal(r.grantId, 'G-001');
+  assert.equal(r.state.freshId, 'G-001');
+  const again = applyDiscovery(r.state, FIXTURES);
+  assert.equal(again.grantId, 'G-001');
+  assert.equal(again.state.freshId, 'G-001');
+  assert.equal(Object.keys(again.state.grants).length, 6);
+  assert.deepEqual(r.state.grants, s.grants); // no workflow or override change
+  assert.equal(s.freshId, undefined); // previous state not mutated
+});
+
+test('discovery skips grants no longer in New and unsuitable ones', () => {
+  let s = act(initialState(FIXTURES), 'G-001', 'watch');
+  assert.equal(applyDiscovery(s, FIXTURES).grantId, 'G-002');
+  s = act(act(act(initialState(FIXTURES), 'G-001', 'watch'), 'G-002', 'pass'), 'G-003', 'plan');
+  assert.equal(discoveryCandidate(s, FIXTURES), null); // G-004..6 are unsuitable and not overridden
+  s = act(s, 'G-004', 'markSuitable');
+  assert.equal(discoveryCandidate(s, FIXTURES), 'G-004');
+  assert.equal(applyDiscovery(s, FIXTURES).state.freshId, 'G-004');
+});
+
+test('no suitable grant in New: same state and null grantId', () => {
+  let s = initialState(FIXTURES);
+  for (const id of ['G-001', 'G-002', 'G-003']) s = act(s, id, 'pass');
+  const r = applyDiscovery(s, FIXTURES);
+  assert.equal(r.grantId, null);
+  assert.equal(r.state, s);
+});
+
+test('a real action on the fresh grant clears freshId; a no-op or another grant does not', () => {
+  const fresh = applyDiscovery(initialState(FIXTURES), FIXTURES).state;
+  assert.equal(act(fresh, 'G-001', 'watch').freshId, undefined);
+  assert.equal('freshId' in act(fresh, 'G-001', 'pass'), false);
+  assert.equal(act(fresh, 'G-001', 'restore'), fresh); // not available: same state, still fresh
+  assert.equal(act(fresh, 'G-001', 'restore').freshId, 'G-001');
+  assert.equal(act(fresh, 'G-002', 'watch').freshId, 'G-001');
+  assert.equal(act(fresh, 'G-004', 'markSuitable').freshId, 'G-001');
+});
+
+test('setBrief stores text, keeps line breaks and empty strings, and returns the same state when unchanged', () => {
+  const s = initialState(FIXTURES);
+  const a = setBrief(s, 'line one\nline two');
+  assert.equal(a.brief, 'line one\nline two');
+  assert.equal(setBrief(a, 'line one\nline two'), a);
+  assert.equal(setBrief(s, '').brief, '');
+  assert.equal('brief' in s, false);
+});
+
+test('brief and freshId round-trip through storage, including empty and multi-line briefs', () => {
+  for (const brief of ['', 'first\nsecond\n\nthird  ', '<b>not html</b> & "quotes"']) {
+    const storage = memoryStorage();
+    let s = setBrief(applyDiscovery(initialState(FIXTURES), FIXTURES).state, brief);
+    assert.equal(save(storage, s), true);
+    const loaded = load(storage, FIXTURES).state;
+    assert.equal(loaded.brief, brief);
+    assert.equal(loaded.freshId, 'G-001');
+  }
+});
+
+test('saved v1 data without the new fields loads with decisions, overrides and filter intact', () => {
+  let s = initialState(FIXTURES);
+  s = act(act(act(setHideUnsuitable(s, true), 'G-004', 'markSuitable'), 'G-004', 'watch'), 'G-001', 'pass');
+  const old = JSON.parse(JSON.stringify(s));
+  assert.equal('brief' in old, false);
+  const storage = memoryStorage({ [STORAGE_KEY]: JSON.stringify(old) });
+  const { state } = load(storage, FIXTURES);
+  assert.equal(state.hideUnsuitable, true);
+  assert.deepEqual(state.grants, s.grants);
+  assert.equal(state.version, 1);
+  assert.equal('brief' in state, false);
+  assert.equal('freshId' in state, false);
+});
+
+test('an unknown or malformed freshId is dropped without resetting anything', () => {
+  const s = act(setHideUnsuitable(initialState(FIXTURES), true), 'G-002', 'watch');
+  for (const bad of ['G-999', 7, null, {}]) {
+    const storage = memoryStorage({ [STORAGE_KEY]: JSON.stringify({ ...s, freshId: bad, brief: 'kept' }) });
+    const { state } = load(storage, FIXTURES);
+    assert.equal('freshId' in state, false);
+    assert.equal(state.brief, 'kept');
+    assert.equal(state.hideUnsuitable, true);
+    assert.equal(state.grants['G-002'].workflow, 'watchlist');
+  }
+  const nonString = memoryStorage({ [STORAGE_KEY]: JSON.stringify({ ...s, brief: 42 }) });
+  assert.equal('brief' in load(nonString, FIXTURES).state, false);
 });

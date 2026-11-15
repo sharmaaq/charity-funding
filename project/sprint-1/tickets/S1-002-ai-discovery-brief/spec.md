@@ -1,6 +1,18 @@
 # Sprint 1: Discovery demo completion specification
 
-Revision: S1-002 draft 1 | Updated: 2026-11-15 | Status: specified for Claude review. S1-001 is in progress per user report; its final reviewed implementation must be reconciled before building this extension.
+Revision: S1-002 draft 1, reviewed by Claude 2026-11-15 | Status: reviewed and planned in [plan.md](plan.md); in implementation together with S1-001.
+
+## Review decisions (Claude, 2026-11-15)
+
+S1-001 had not been implemented when this ticket was reviewed, so both tickets are built together from this spec. No requirement below was changed; these decisions settle points the drafts left open.
+
+| # | Decision | Reason |
+| --- | --- | --- |
+| R1 | The real fixtures keep only their sourced closing dates and get no opening dates. A timing preview at `?preview=timing` overlays clearly labelled synthetic dates so Upcoming and coexisting markers can be seen at any time. It is not linked from the normal UI. | S1-001 asked Claude to confirm how Upcoming is demonstrated. No real opening dates exist, and the real 2026 deadlines will pass, after which no markers would show. |
+| R2 | From 900 px wide the AI discovery panel is two columns (textarea beside the helper text and button). | The grant list already starts far down the page; a full-width seven-line textarea would push it further. |
+| R3 | The brief and the discovery freshness marker are optional fields in the existing v1 saved state. | Both drafts required that existing saved decisions are not reset. |
+| R4 | The Discover result behaviour is S1-001's as drafted: first suitable grant still in New, in fixture order; one New badge; kept until the manager acts on that grant or another run selects a different one. | S1-002 defers to S1-001 for this and S1-001's defaults needed no correction. |
+| R5 | The preview file `discovery-brief-preview.html` mentioned in the ticket is not in the repository, so the panel follows this spec's text. | Checked on disk 2026-11-15. |
 
 This complete specification carries forward the on-disk S1-001 baseline, replaces REQ-016 with the editable AI-discovery brief, and incorporates the verified visual section from S0-003 revision 5.1. S1-001 and other parallel tickets remain independently owned; inspect their latest reviewed specs/code before implementation and record reconciliation rather than reverting their corrections. This ticket does not replace separate Sprint 2 work. Sprint 1 explicitly revises the no-discovery-control baseline; no live discovery or background agent is implemented. Earlier scope and acceptance criteria remain in force except those explicitly revised below.
 

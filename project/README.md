@@ -15,4 +15,5 @@ Each sprint lives in `sprint-N/`, starting with [sprint-0](sprint-0/README.md). 
 | --- | --- | --- |
 | [Sprint 0](sprint-0/README.md) | Initial charity fundraising POC | S0-002 deployed; S0-003 visual spec drafted |
 | [Sprint 1](sprint-1/README.md) | Complete Discovery demo: markers and simulated discovery | S1-001 in progress (user report); S1-002 specified |
-| [Sprint 2](sprint-2/README.md) | Planning/submission foundations: organisation information and document store | S2-001 spec drafted |
+| [Sprint 2](sprint-2/README.md) | Organisation information and document store | S2-001 planned; queued behind Sprint 1 |
+| [Sprint 3](sprint-3/README.md) | Guided application and automated submission demonstration | S3-001 planned in three phases; queued behind S2-001 |

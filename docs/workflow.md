@@ -19,5 +19,9 @@ Default flow for every ticket (DEC-006). It runs straight through; the only stop
 5. **Report.** Claude relays the implementer's results to the user, labelled as reported by the implementer. Claude does not re-run the tests or re-test by hand unless the user asks.
 6. **User review.** The user reviews the deployed result; feedback becomes the next ticket.
 
+Related tickets that have not been built may be planned and built together when a later one replaces part of an earlier one; the plan says so and each ticket records it.
+
+ChatGPT and the user often write specifications in parallel while Claude and the implementing model build. Files outside the ticket being built may change on disk at any time; that is expected, they are not to be edited or reverted by the build, and it is fine for them to be included in its commits. When the user says to ignore a folder (for example a sprint still being specified), nothing in it is reviewed, planned or built.
+
 The implementing model stops and reports instead of working around a rejected push, a deployment permission failure, anything that would change access (IAM) in Google Cloud, or anything touching another Google Cloud project.
 

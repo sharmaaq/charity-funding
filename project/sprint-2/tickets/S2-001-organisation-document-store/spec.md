@@ -1,6 +1,20 @@
 # Sprint 2: Organisation information and document store
 
-Revision: 7 | Updated: 2026-11-15 | Ticket: S2-001 | Status: draft for Claude review; not implemented.
+Revision: 7, reviewed by Claude 2026-11-15 | Ticket: S2-001 | Status: reviewed and planned in [plan.md](plan.md); queued for implementation after Sprint 1.
+
+## Review decisions (Claude, 2026-11-15)
+
+No requirement was changed and no question needed the user. These settle points the draft left to review.
+
+| # | Decision | Reason |
+| --- | --- | --- |
+| R1 | The baseline is the application as deployed after Sprint 1 (S1-002 spec), not the revision 6 text carried forward below, which still has S1-001's Discover button and estimated fonts and colours. | Sprint 1 was reviewed and built after this draft was written. |
+| R2 | The entry point is the YOR Plc wordmark in the existing header. | The shell has a header, not a sidebar, as the draft anticipated. |
+| R3 | Routes `#/organisation/bids/new` and `#/organisation/bids/<id>/edit` are added for the bid form. | The draft listed list and detail routes only; forms need addresses for refresh and Back to work. |
+| R4 | Organisation document uploads commit one transaction per file; a bid save commits everything in one transaction. | Matches the draft's per-file batch results and atomic bid save. |
+| R5 | File limits are constants that tests can override, so the 100 MiB aggregate cap is tested without writing 100 MiB. The exact 10 MiB boundary is tested with real bytes. | Keeps the test suite fast without weakening the rule. |
+| R6 | Storage-heavy browser tests run at the desktop size only; navigation, forms, accessibility and layout run at all three sizes. | Storage behaviour does not depend on viewport. |
+| R7 | [mockups.html](mockups.html) is the layout reference where it does not conflict with this spec. | The user asked for mockups before implementation. |
 
 ## Authority and scope
 

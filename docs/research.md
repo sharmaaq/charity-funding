@@ -18,3 +18,7 @@ The POC draft was imported on 2026-11-15; see [S0-001](../project/sprint-0/ticke
 Grant and charity-profile evidence for the six Sprint 0 fixtures is kept with its ticket: [S0-002 research](../project/sprint-0/tickets/S0-002-discovery-suitability/research.md).
 
 For future external findings, record the claim, verification status (verified / inference / uncertain), source URL, date checked, limitations and any requirement or decision it informs. Recheck time-sensitive findings before use.
+
+## S3-001 submission research — 2026-11-15
+
+See [ticket research](../project/sprint-3/tickets/S3-001-automated-submission/research.md) for official URLs, dated claims and limitations. Selected Garfield Weston Regular Grants for core-support preparation. Verified public proposal/upload guidance and an August 2025 migration to Blackbaud; old 2023 portal instructions are not reliable current selectors/limits. Current linked programme ID extracted, but authenticated form/eligibility/receipt not inspected. Blackbaud publishes a grantmaking-office API; an applicant submission endpoint was not established. Real live submission remains unverified. Proposed controlled demo uses actual browser automation and our own API, never an invented funder API. No document-store contents, real accounts, portal draft or outgoing application were accessed/sent in this task.
