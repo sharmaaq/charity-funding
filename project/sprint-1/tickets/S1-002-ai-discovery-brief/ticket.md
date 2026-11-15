@@ -29,7 +29,7 @@ Claude review, 2026-11-15: S1-001 had not been implemented (the "in progress" no
 
 ### Implementation and validation
 
-Implemented by Claude on 2026-11-15 together with S1-001 (REQ-015 and REQ-016). Deployment results are recorded under "Shipping" below.
+Implemented by Claude on 2026-11-15 together with S1-001 (REQ-015 and REQ-016). Deployment results follow the validation notes.
 
 What changed: new modules `public/js/timing.js`, `preview.js`, `discovery.js`; `state.js` gains optional `freshId` and `brief` (storage key and version 1 unchanged, older saved data loads intact), `discoveryCandidate`, `applyDiscovery`, `setBrief`, and `applyAction` clears `freshId` on a real action on that grant; the AI discovery panel is static markup in `index.html` updated in place by `app.js` (the textarea is never recreated), so focus and caret survive list re-renders; markers, preview notice and midnight timer in `app.js`; styles in `styles.css`; README notes; Sprint 1 evidence scenes in `tests/evidence/capture.mjs`.
 
@@ -38,6 +38,8 @@ Behaviour notes: the brief autosaves 400 ms after typing and is also flushed on 
 Validation run locally: unit 54 of 54 pass; Playwright 126 of 126 pass (63 existing, unchanged, plus 63 new across phone-360, phone-390 and desktop-1280). No existing test was edited. The new tests cover defaults, persistence including line breaks and reload, caret retention, validation, busy state, single run, no-candidate, failure, preference and override survival, no requests leaving the origin, no run on load, keyboard use, overflow and badge bounds, plus the timing and state unit cases listed in the plan.
 
 Evidence: [evidence folder](evidence/) holds brief-idle, brief-edited-busy, discovery-complete, markers-real and markers-preview at 1280, 390 and 360 px (clock fixed at 15 November 2026). Viewed: the panel is compact (two columns at 1280, stacked on phones), badges wrap under long names and sit inside their row at 360 px, and the busy state shows the spinner with the button disabled. Weak points: the desktop textarea shows about six lines of a long default brief and scrolls for the rest; at 360 px the existing Plan application button label wraps to three lines (existing S0-003 behaviour, not changed here).
+
+Shipping: Deployed to Cloud Run (project charity-funding-514818, europe-west1), revision charity-funding-00003-vx7 serving 100 percent of traffic, from commit 066e899. Live checks run against https://charity-funding-36580608208.europe-west1.run.app: / , /js/timing.js, /js/preview.js and /js/discovery.js each returned 200; the full Playwright suite with BASE_URL set to the live URL passed 126 of 126 (phone-360, phone-390 and desktop-1280, 42 each).
 
 Documentation verification: local Markdown links across the seven new/updated documents resolve; git diff --check passed. Verified that the complete spec contains one REQ-016 section and carries Urbanist from the reviewed S0-003 spec. Application tests not run.
 

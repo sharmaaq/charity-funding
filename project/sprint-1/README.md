@@ -6,7 +6,7 @@ Current Discovery extension: [S1-002 spec.md](tickets/S1-002-ai-discovery-brief/
 
 | Ticket | Scope | Agreement | Delivery |
 | --- | --- | --- | --- |
-| [S1-001](tickets/S1-001-discovery-markers/ticket.md) | Compact date markers and simulated Discover action | User-requested features; defaults settled in review | Built with S1-002; local tests pass; deployment pending |
-| [S1-002](tickets/S1-002-ai-discovery-brief/ticket.md) | Editable AI discovery brief and simulated run | User-requested scope; defaults settled in review | Built; local tests pass; deployment pending |
+| [S1-001](tickets/S1-001-discovery-markers/ticket.md) | Compact date markers and simulated Discover action | User-requested features; defaults settled in review | Delivered and live (revision charity-funding-00003-vx7) |
+| [S1-002](tickets/S1-002-ai-discovery-brief/ticket.md) | Editable AI discovery brief and simulated run | User-requested scope; defaults settled in review | Delivered and live (revision charity-funding-00003-vx7) |
 
 No additional date/freshness filters, live discovery, background agent, authentication or shared state. Further marker criteria can be added in a subsequent revision/ticket. Next ticket: S1-003.

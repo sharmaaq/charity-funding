@@ -14,9 +14,9 @@ Last updated: 2026-11-15 (Claude: S0-003 reviewed and planned; ChatGPT's S1-001 
 
 - S1-002 design preview created at repository-root discovery-brief-preview.html at the user's request before implementation handoff. User visual review pending. Preview interaction checks passed in installed headless Chrome; no served application changes. See S1-002 ticket for scope and evidence.
 
-- [S1-002](../project/sprint-1/tickets/S1-002-ai-discovery-brief/ticket.md) implemented with S1-001 on 2026-11-15 (Claude): editable prefilled brief, local persistence, simulated Discover run. Local tests pass (unit 54, Playwright 126); evidence screenshots in the ticket. Deployment: pending.
+- [S1-002](../project/sprint-1/tickets/S1-002-ai-discovery-brief/ticket.md) implemented with S1-001 on 2026-11-15 (Claude): editable prefilled brief, local persistence, simulated Discover run. Local tests pass (unit 54, Playwright 126); evidence screenshots in the ticket. Deployed and verified live: revision charity-funding-00003-vx7, live Playwright suite 126 of 126 pass.
 
-- [S1-001](../project/sprint-1/tickets/S1-001-discovery-markers/ticket.md) implemented with S1-002 on 2026-11-15 (Claude): Upcoming and Due soon markers with a labelled ?preview=timing overlay; its own Discover button was superseded by the S1-002 panel. Local tests pass. Deployment: pending.
+- [S1-001](../project/sprint-1/tickets/S1-001-discovery-markers/ticket.md) implemented with S1-002 on 2026-11-15 (Claude): Upcoming and Due soon markers with a labelled ?preview=timing overlay; its own Discover button was superseded by the S1-002 panel. Local tests pass. Deployed and verified live: revision charity-funding-00003-vx7, live Playwright suite 126 of 126 pass.
 
 - [S0-003](../project/sprint-0/tickets/S0-003-visual-theme/ticket.md): visual restyle implemented (Lilita One and Urbanist bundled, purple and lime theme, title band with roofline motif). Committed and pushed. Deployed to Cloud Run as revision charity-funding-00002-82t (100 percent of traffic).
 

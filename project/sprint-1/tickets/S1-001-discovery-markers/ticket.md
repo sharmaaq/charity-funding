@@ -30,6 +30,8 @@ Built in one pass with S1-002 under [plan.md](../S1-002-ai-discovery-brief/plan.
 
 Validation actually run locally: unit tests 54 of 54 pass (28 existing plus 26 new, 18 of them timing and fixtures); Playwright 126 of 126 pass (63 existing unchanged plus 63 new, 21 per viewport project). Boundary cases from the plan (16/22 and 15/23 November; 15 and 16 December; 31 January clamp in 2027 and 2028; 23:30 UTC in summer; both sides of each clock change) all pass. Badge contrast measured: white on purple, navy on light teal and navy on lime are each above 4.5:1 (exact values printed by the timing unit test). Screenshots at 1280, 390 and 360 px (markers-real, markers-preview) were viewed; badges wrap under long names without clipping or overflow.
 
+Shipping: Deployed to Cloud Run (project charity-funding-514818, europe-west1), revision charity-funding-00003-vx7 serving 100 percent of traffic, from commit 066e899. Live checks run against https://charity-funding-36580608208.europe-west1.run.app: / , /js/timing.js, /js/preview.js and /js/discovery.js each returned 200; the full Playwright suite with BASE_URL set to the live URL passed 126 of 126 (phone-360, phone-390 and desktop-1280, 42 each).
+
 ## Implementation and validation
 
 Local evidence inspected 2026-11-15: startup documents, requirements/decisions, sprint index, S0-003 complete spec, public/js/fixtures.js, public/js/state.js and rendering entry points in public/js/app.js. Fixtures currently have human-readable timing only; state already enforces one entry per stable ID. No live grant facts were researched or updated.
