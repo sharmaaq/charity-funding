@@ -5,21 +5,24 @@ Last updated: 2026-11-15.
 ## Purpose and users
 
 - Project name: charity-funding.
-- Product purpose, intended users and problem to solve: unknown; not yet agreed in the project documents. Do not infer requirements from the name.
+- Product purpose: a responsive web POC for a charity fundraising manager to triage funding opportunities, see suitability recommendations and decide what to pursue. Planning & submission and Tracking are placeholders in Sprint 0. The demo charity is called YOR Plc. Source: S0-002 spec revision 4.
 - Workspace: `C:\aks-code\charity-funding`, the existing local Windows folder also used by Claude for development, as specified by the user.
 
 ## Scope and constraints
 
-- Confirmed current scope: establish persistent shared documentation and assistant workflow.
-- Product scope, exclusions, data sources, security needs and deployment constraints: unknown.
+- Current stage: S0-002 spec approved; implementation plan awaiting user approval.
+- Sprint 0 scope: six fixed grant examples, no AI integration or automated discovery, browser-local state only, phone/desktop browsers, deployed to Cloud Run (project `charity-funding-514818`), source at https://github.com/sharmaaq/charity-funding. Details are in the S0-002 spec and plan; see the requirements register.
 - Assistant responsibilities and task-specific overrides are defined in [workflow.md](workflow.md).
 - This setup does not authorise application features, Git initialisation, commits or pushes.
 
 ## Current architecture
 
-No application source, build definition or tests were present at initial inspection. Existing IntelliJ settings define a Java module and a Java SDK named 27; these are IDE settings, not an agreed language, runtime or architecture decision. Application architecture and build/test commands remain unknown.
+No application source, build definition or tests were present at initial inspection. Existing IntelliJ settings define a Java module and a Java SDK named 27; these are IDE settings, not an agreed language, runtime or architecture decision. Proposed stack (S0-002 plan, not yet approved): static HTML/CSS/JavaScript served by a dependency-free Node 24 server, `node --test` and Playwright for tests.
 
 ## Document index
+
+- [Project sprints](../project/README.md): sprint and ticket conventions.
+- [Sprint 0](../project/sprint-0/README.md): ticket index and pointer to the current specification.
 
 - [workflow.md](workflow.md): shared working rules.
 - [requirements.md](requirements.md): product requirements, agreement status and acceptance criteria.

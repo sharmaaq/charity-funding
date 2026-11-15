@@ -6,7 +6,18 @@ This is the single source of shared workflow rules for charity-funding.
 
 - At the beginning of every new session, read this file, then [project-context.md](project-context.md) and [status.md](status.md). Read relevant requirements, decisions, research and source code before acting. Do not assume access to the other assistant's chat history.
 - Use repository files for durable project knowledge. Chat history and assistant-specific memory are supplementary.
-- ChatGPT Work defaults to research, requirements, specifications and review, maintaining research and specification documents. Claude defaults to implementation and testing against those specifications, recording results and discrepancies. The user may explicitly override these roles for an individual task.
+- Roles (DEC-005). ChatGPT Work defaults to research, requirements and drafting specifications. Claude reviews each specification, plans the implementation, delegates the build to an implementing model and verifies the result. The user may explicitly override these roles for an individual task, including asking either assistant to finish work the other could not complete.
+
+## Ticket pipeline
+
+Each ticket moves through these stages in order. The user's approval is the gate between them; an assistant does not advance a ticket on its own.
+
+1. **Specify.** ChatGPT (or Claude, if asked) drafts `spec.md` in the ticket folder.
+2. **Review.** Claude reviews the spec against the user's request, the repository and the evidence. Claude fixes clear defects directly and lists anything that changes behaviour or scope as numbered open questions with a recommendation each. The user answers; the answers are folded into the spec.
+3. **Approve the spec.** The user reviews the spec again and asks Claude to plan. A spec marked "ready" by an assistant is not approved.
+4. **Plan.** Claude writes `plan.md` in the ticket folder: stack, files, steps, tests and how each REQ is verified. The user approves it.
+5. **Implement.** Claude hands the approved spec and plan to an implementing model (typically Sonnet). The implementer follows the plan and reports deviations instead of improvising scope.
+6. **Verify and record.** Claude checks the result against the acceptance criteria, runs the tests, and records actual results and discrepancies in the ticket and [status.md](status.md).
 
 ## Requirements, research and evidence
 
@@ -24,6 +35,10 @@ This is the single source of shared workflow rules for charity-funding.
 - Run checks appropriate to the change and record actual results. Distinguish tests passed, tests failed and tests not run. Do not describe a planned or unexecuted check as passed.
 
 ## Documentation and handoff
+
+- Organise sprint baselines and requirement iterations as separate tickets under [project/](../project/README.md). Preserve initial specifications; link subsequent tickets and stable requirement IDs. Maintain the requirements register and sprint index so the current intended behaviour is clear.
+- A specification stays with its ticket: `spec.md`, `research.md` and `plan.md` live in the ticket folder, not at the sprint root or in `docs/` (DEC-003). The sprint README names the current specification.
+- If an assistant stops mid-task (for example at a usage limit), the other assistant first compares the ticket's claims with what is actually on disk. Files and decisions a ticket refers to may not exist yet.
 
 - After meaningful research, decisions or implementation changes, update relevant project documents before ending the response, without waiting for a separate request. Skip updates for casual questions that change nothing.
 - Keep documentation concise and current. Do not append full transcripts or duplicate the same information across documents; link to the authoritative document.

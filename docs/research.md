@@ -13,6 +13,8 @@ Last updated: 2026-11-15.
 
 ## External research and uncertainties
 
-No external product or funding research has been performed for this setup. Product purpose, users, eligibility rules and data sources remain unknown. Do not treat the project name or IDE configuration as evidence for product requirements.
+The POC draft was imported on 2026-11-15; see [S0-001](../project/sprint-0/tickets/S0-001-initial-requirements/ticket.md). Funding claims, links and snapshot dates are source-document claims, not independently verified during import. Historical workspace findings above describe the initial setup; current inspection confirms Git is now configured at C:/aks-code/charity-funding and was clean before the import.
+
+Grant and charity-profile evidence for the six Sprint 0 fixtures is kept with its ticket: [S0-002 research](../project/sprint-0/tickets/S0-002-discovery-suitability/research.md).
 
 For future external findings, record the claim, verification status (verified / inference / uncertain), source URL, date checked, limitations and any requirement or decision it informs. Recheck time-sensitive findings before use.
