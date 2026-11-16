@@ -113,7 +113,7 @@ export function buildWorkspace(sess, api) {
       body.push(w.el);
     }
     if (sid === 'documents') {
-      body.push(h('p', { class: 'panel-note', text: 'The proposal PDF is created from your confirmed answers in the next update. For now, choose the accounts document here.' }));
+      body.push(h('p', { class: 'panel-note', text: 'The proposal PDF is created from your confirmed answers when you review the application. Here, choose the accounts document: a stored PDF or DOCX.' }));
     }
     if (sid === 'finances') { finHost.replaceChildren(buildFinance()); body.push(finHost); }
     const prev = idx > 0 ? mkBtn('', `Previous: ${SECTIONS[idx - 1].label}`, () => api.goSection(SECTIONS[idx - 1].id)) : null;

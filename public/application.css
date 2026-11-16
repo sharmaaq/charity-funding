@@ -177,3 +177,21 @@
 }
 
 .app-workspace [hidden], .app-review [hidden], .dialog [hidden] { display: none !important; }
+
+/* ---- package panel (S3-001 phase B) ---- */
+.pkg-table { margin: 0 0 12px; }
+.pkg-table code, .hash-line code { overflow-wrap: anywhere; word-break: break-all; font-size: 0.8125rem; }
+.hash-line { margin: 0 0 12px; }
+.confirm-box { border: 2px solid var(--purple); border-radius: 2px; padding: 8px 14px 12px; margin: 16px 0; background: #fff; }
+.confirm-box legend { font-weight: 800; color: var(--purple); padding: 0 6px; }
+.review-block .check-row { display: flex; align-items: flex-start; gap: 10px; min-height: 44px; padding: 6px 0; }
+.review-block .check-row input { width: 24px; height: 24px; min-height: 0; flex: none; margin-top: 2px; }
+.review-block .check-row label { font-weight: 800; }
+.pkg-status { margin: 8px 0 0; font-weight: 700; }
+.pkg-status[data-kind="error"] { color: var(--bad-fg); }
+.pkg-status[data-kind="ok"] { color: var(--purple-dark); }
+.replace-proposal { margin: 16px 0; padding: 10px 12px; border: 1px dashed var(--purple); background: #fff; }
+.replace-proposal h4 { margin: 0 0 4px; font-size: 1rem; }
+.source-notes, .live-note { margin: 12px 0; }
+.source-notes summary, .live-note summary { cursor: pointer; font-weight: 800; color: var(--purple); min-height: 44px; display: flex; align-items: center; }
+.review-block .form-error { margin: 0 0 12px; }

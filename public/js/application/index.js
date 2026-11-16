@@ -10,6 +10,7 @@ import { GRANT_ID, evaluate, fieldById, sectionOf, SECTIONS } from './schema.js'
 import { confirmAnswer, applySuggestion, editedAnswersThatWouldChange, isEdited, manualExcerptAnswer, mergeAnswers, setManagerAnswer } from './answers.js';
 import { buildSuggestions, diffSuggestions, documentRef, initialAnswers, refreshedRefs, staleMap } from './prefill.js';
 import { buildExampleAnswers } from './example.js';
+import { ACCOUNTS_EXAMPLE_FILENAME, ACCOUNTS_EXAMPLE_PERIOD, ACCOUNTS_EXAMPLE_TAG, ACCOUNTS_EXAMPLE_TITLE, buildAccountsExample } from './accounts-example.js';
 import { refreshDialog, excerptDialog } from './dialogs.js';
 import { buildWorkspace } from './workspace.js';
 import { buildReview } from './review.js';
@@ -220,8 +221,33 @@ export function createApplication({ mount, titleEl, now, announce, navigate, get
       recompute();
       view.ui.renderSection();
     },
+    // Used by the review screen's package panel.
+    services: ensureServices,
+    nowIso,
+    announce,
+    // Stores (or, with null, removes) the manager's own proposal PDF. Saves any pending edits first, then bumps the draft
+    // revision, so the review is rebuilt and both confirmations are cleared by the caller.
+    async setReplacement(replacement) {
+      const ok = await flush();
+      if (!ok) throw new Error('Your latest changes could not be saved, so the proposal was not changed. Go back to the form and save first.');
+      const svc = await ensureServices();
+      if (!svc.apps) throw svc.problem || new Error('Storage is not available.');
+      const rec = await svc.apps.setProposalReplacement(sess.app.id, { expectedRevision: sess.app.draftRevision, replacement });
+      sess.app = rec;
+      return rec;
+    },
     async loadExample(trigger) {
-      const incoming = buildExampleAnswers(nowIso());
+      // The worked example selects a synthetic accounts PDF. It is added to the document store once (found again by its
+      // tag on every later load, never duplicated); the profile and every other stored document are left alone.
+      let accountsDoc = null;
+      let accountsProblem = null;
+      try {
+        accountsDoc = await ensureExampleAccounts();
+      } catch (e) {
+        accountsProblem = mapError(e);
+      }
+      await reloadSources(false);
+      const incoming = buildExampleAnswers(nowIso(), accountsDoc);
       const clash = editedAnswersThatWouldChange(sess.answers, incoming);
       if (clash.length) {
         const ok = await confirmDialog({
@@ -235,7 +261,7 @@ export function createApplication({ mount, titleEl, now, announce, navigate, get
       }
       sess.answers = mergeAnswers(sess.answers, incoming);
       afterChange(null, { rerender: true });
-      announce('Worked demo example loaded. Every value in it is fictional.');
+      announce(accountsProblem ? `Worked demo example loaded, but the synthetic accounts document could not be stored: ${accountsProblem.message}` : 'Worked demo example loaded. Every value in it is fictional.');
     },
     async refresh(trigger) {
       await reloadSources(false);
@@ -289,6 +315,24 @@ export function createApplication({ mount, titleEl, now, announce, navigate, get
     recompute();
     if (paint && view && view.ui) view.ui.renderSection();
     else if (view && view.ui) view.ui.updateAll();
+  }
+
+  // The stored synthetic accounts PDF for the worked example, created on first use. Resolves the document record.
+  async function ensureExampleAccounts() {
+    const svc = await ensureServices();
+    if (!svc.org) throw svc.problem || new Error('The document store is not available.');
+    const docs = await svc.org.listDocuments();
+    const found = docs.find((d) => (d.tags || []).includes(ACCOUNTS_EXAMPLE_TAG));
+    if (found) return found;
+    const bytes = await buildAccountsExample();
+    const file = new File([bytes], ACCOUNTS_EXAMPLE_FILENAME, { type: 'application/pdf' });
+    return svc.org.uploadDocument(file, {
+      category: 'financial',
+      title: ACCOUNTS_EXAMPLE_TITLE,
+      description: 'Synthetic demo example, not a real submission or filing. Created for the worked demo example.',
+      period: ACCOUNTS_EXAMPLE_PERIOD,
+      tags: [ACCOUNTS_EXAMPLE_TAG, 'synthetic'],
+    });
   }
 
   // ---------- views ----------

@@ -1,15 +1,15 @@
-// The review screen. Phase A: the full answer set, finance totals and gaps, warnings and missing information as links
-// back to the fields. The package, PDF and run controls are not here yet.
+// The review screen: the full answer set, finance totals and gaps, warnings and missing information as links back to the
+// fields, then (package-panel.js) the attachments, package hash, proposal download, source notes, the two confirmations
+// and the run control.
 //
-// Phase B attaches to #review-next: the element with data-testid="review-next" is the single place where the
-// attachment list, package hash, proposal download, the two confirmations and the run control are added.
+// Phase C attaches at #review-next: [data-testid="run-demo"] inside it is the (currently disabled) run control, and
+// the panel element carries data-snapshot-id and data-confirmed once a package is frozen and both boxes are ticked.
 import { h, formatBytes, formatDateTime } from '../org/dom.js';
 import { SECTIONS, POLICY_FIELD_IDS, fieldById, fieldsInSection, formatPence, sectionLabel } from './schema.js';
 import { ORIGIN_CHIP, STATUS, displayValue } from './labels.js';
 import { PLANNING_HASH, appHash, fieldHash } from './routes.js';
 import { statusStrip } from './workspace.js';
-
-export const NEXT_UPDATE_TEXT = 'Document preparation and the submission demo arrive in the next update.';
+import { buildPackagePanel } from './package-panel.js';
 
 const REASON_SHORT = {
   'suggested-draft': 'Suggested draft: edit or confirm it',
@@ -141,12 +141,10 @@ export function buildReview(sess, api) {
     doc
       ? h('ul', { class: 'issue-list' }, h('li', null, h('strong', { text: 'Accounts: ' }), `${doc.title} · ${doc.filename} · ${doc.mime} · ${formatBytes(doc.size)} · version ${formatDateTime(doc.updatedAt)}`))
       : h('p', { text: acc ? 'The selected accounts document is no longer stored.' : 'No accounts document selected.' }),
-    h('p', { class: 'sub', text: 'The proposal PDF is generated from confirmed answers in the next update.' })));
+    h('p', { class: 'sub', text: 'The proposal PDF and the package are listed below, after the answers.' })));
 
-  // ---- where the package and run controls attach in the next phase ----
-  parts.push(h('section', { class: 'review-block review-next', id: 'review-next', 'data-testid': 'review-next', 'aria-labelledby': 'rv-next' },
-    h('h3', { id: 'rv-next', text: 'Package and submission demo' }),
-    h('p', { 'data-testid': 'next-update', text: NEXT_UPDATE_TEXT })));
+  // ---- package, confirmations and the run control ----
+  parts.push(buildPackagePanel(sess, api));
 
   return h('section', { class: 'org-panel app-review', 'aria-labelledby': 'review-heading', 'data-testid': 'application-review' }, parts);
 }

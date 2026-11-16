@@ -244,12 +244,12 @@ test('worked demo example: synthetic values, finance totals, confirm before over
   // organisation profile untouched
   await page.goto('/#/organisation');
   await expect(page.locator('main')).not.toContainText('Demo office, London');
-  // review: only the accounts selection is missing; the four demo-review answers wait for the manager
+  // review: the worked example now selects the synthetic accounts PDF, so nothing is missing; the four demo-review answers wait for the manager
   await page.goto('/' + APP);
   await page.getByRole('button', { name: 'Review application' }).click();
   await expect(page).toHaveURL(/application\/review$/);
-  await expect(page.getByTestId('missing-info')).toContainText('Missing information (1)');
-  await expect(page.getByTestId('missing-info')).toContainText('Accounts document');
+  await expect(page.getByTestId('missing-info')).toContainText('Missing information (0)');
+  await expect(page.getByTestId('missing-info')).not.toContainText('Accounts document');
   await expect(page.getByTestId('needs-review')).toContainText('Other answers that need review (4)');
 });
 
@@ -264,10 +264,12 @@ test('incomplete draft: saved, review lists missing items as links back to the f
   await expect(page.getByTestId('suggested-drafts')).toContainText('Why are you asking');
   await expect(page.getByTestId('policy-answers')).toContainText('Policy and declaration answers');
   await expect(page.getByTestId('review-finance')).toContainText('No rows yet');
-  // exactly the Phase A placeholder; no package, PDF, checkbox or run control
-  await expect(page.getByTestId('next-update')).toHaveText('Document preparation and the submission demo arrive in the next update.');
-  await expect(page.locator('main input[type="checkbox"]')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /run|submit|download/i })).toHaveCount(0);
+  // Phase B replaced the placeholder: no package is prepared for an incomplete draft, both boxes are disabled and the run control is disabled
+  await expect(page.getByTestId('package-blocked')).toContainText('present and confirmed');
+  await expect(page.getByTestId('check-reviewed')).toBeDisabled();
+  await expect(page.getByTestId('check-transfer')).toBeDisabled();
+  await expect(page.getByTestId('run-demo')).toBeDisabled();
+  await expect(page.getByTestId('download-proposal')).toHaveCount(0);
   await expect(page.getByText('Submit to Garfield Weston')).toHaveCount(0);
   await shot(page, 'S3-001-A-review-missing');
   await expectNoOverflow(page);
@@ -423,7 +425,7 @@ test('keyboard flow, targets of at least 44px and no horizontal overflow on ever
   const smallReview = await page.locator('.app-review a.btn, .app-review button').evaluateAll((els) => els.filter((e) => e.getBoundingClientRect().height < 43.5).length);
   expect(smallReview).toBe(0);
   await expect(page.getByTestId('review-finance')).toContainText('£400,000');
-  await expect(page.getByTestId('review-documents')).toContainText('No accounts document selected');
+  await expect(page.getByTestId('review-documents')).toContainText('Synthetic accounts example');
 });
 
 test('leaving mid-edit saves first and the draft is there on return', async ({ page }) => {

@@ -3,7 +3,7 @@
 - Type: iteration
 - Created: 2026-11-15
 - Agreement: user-requested scope; funder selection and engineering defaults proposed for Claude review
-- Delivery: reviewed and planned by Claude 2026-11-15 ([plan.md](plan.md), three phases); queued behind S2-001. Live portal integration not verified and not in scope to verify
+- Delivery: phases A and B built and shipped 2026-11-16; phase C (API, test portal, runner, receipts) not started. Live portal integration not verified and not in scope to verify
 - Owner: ChatGPT specifies; Claude reviews, plans and delegates implementation
 - Predecessor: [S2-001](../../../sprint-2/tickets/S2-001-organisation-document-store/ticket.md); preserve the independently reviewed S1-002 Discovery extension
 - Specification: [spec.md](spec.md); evidence: [research.md](research.md)
@@ -38,6 +38,17 @@ Browser-only. G-001 Plan application now opens `#/planning/G-001/application`: s
 - Evidence: `evidence/S3-001-A-*.png` at 1280, 390 and 360 px (source drawer, prefilled form, finance check, review with missing information, review of the worked example).
 - Not done in this phase, by design: proposal PDF, package, synthetic accounts PDF, server API, test portal, browser runner, receipts, Tracking. The worked example leaves the accounts document unselected because its PDF is a Phase B file.
 - Deployed 2026-11-16 to Cloud Run: revision charity-funding-00005-4zf, 100 percent of traffic, https://charity-funding-36580608208.europe-west1.run.app. Live checks: `/`, `/js/application/schema.js` and `/application.css` return 200; full Playwright suite against the live URL 234 of 234 pass. Commit 6ca9eb4.
+
+### Phase B: proposal PDF and submission package (2026-11-16, Claude)
+
+Browser-only. Built by the implementing model until it stopped on an API overload error; Claude took over at the user's instruction, fixed one test and shipped. The Review screen now prepares the package once every applicable answer is present and confirmed: a generated A4 proposal PDF (standard Helvetica, 11-point body, page numbers and demo footer, at most ten pages), the selected accounts file copied exactly as stored, per-file SHA-256 and a package hash over canonical JSON, Download proposal, View source notes, the manager's own replacement proposal PDF (page count read; "manager checked" only after confirmation), and the two confirmation checkboxes. Ticking both freezes a `SubmissionSnapshot` and copies of the attachments in one transaction, with a recheck of the draft revision and source versions and the 100 MiB budget. The Run submission demo button is present but disabled with the "automation unavailable" state, because the capabilities request has no server behind it until Phase C. `pdf-lib` (MIT) is vendored at `public/vendor/` with its licence; nothing is loaded from a CDN. The worked example now includes a generated, watermarked synthetic accounts PDF.
+
+- New modules: `canonical.js` and `transfer.js` (pure, for the server to import in Phase C), `proposal.js`, `package.js`, `package-panel.js`, `accounts-example.js`.
+- Local results: unit 91 of 91 (10 new); Playwright 266 of 266 across the three viewports (package storage tests desktop only).
+- Existing test edited: `tests/e2e/application.spec.js`, three assertions that described the Phase A placeholder and the then-unselected accounts document (the placeholder text, "Missing information (1)", "No accounts document selected") now assert the Phase B state.
+- Test fix during takeover: the "editing an answer" package test chose the section before the workspace had rendered at phone widths; it now waits for the section title. No application code changed for it.
+- Evidence: `evidence/S3-001-B-*.png` (package panel, confirmed package, overflow blocked, review with package at 1280, 390 and 360 px; proposal pages 1 to 3; synthetic accounts example).
+- Not done in this phase, by design: server API, test portal, browser runner, receipts, Tracking. No request leaves the browser; nothing contacts a funder.
 
 ## Handoff
 

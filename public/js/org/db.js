@@ -25,6 +25,7 @@ export const ERROR_MESSAGES = Object.freeze({
   corrupt: 'Some saved organisation records could not be read. Nothing has been changed or deleted.',
   capacity: 'There is not enough room in the 100 MB organisation file store. Delete a stored file and try again.',
   conflict: 'This application was changed in another tab or window since you opened it.',
+  'source-changed': 'A document or file this package depends on changed while it was being prepared. Nothing was saved. Review the package again.',
   'not-found': 'That record no longer exists. It may have been deleted in another tab.',
   invalid: 'Some details need correcting.',
   'read-only': 'Saving is unavailable in this browser, so this cannot be changed.',

@@ -16,8 +16,8 @@ export default defineConfig({
   },
   projects: [
     // Storage-heavy tests (10 MiB uploads, transactions) do not depend on the viewport: desktop only.
-    { name: 'phone-360', use: viewport(360, 740), testIgnore: /organisation-storage/ },
-    { name: 'phone-390', use: viewport(390, 844), testIgnore: /organisation-storage/ },
+    { name: 'phone-360', use: viewport(360, 740), testIgnore: /organisation-storage|package-storage/ },
+    { name: 'phone-390', use: viewport(390, 844), testIgnore: /organisation-storage|package-storage/ },
     { name: 'desktop-1280', use: viewport(1280, 800) },
   ],
   webServer: BASE_URL ? undefined : {

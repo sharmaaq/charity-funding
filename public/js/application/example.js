@@ -1,8 +1,9 @@
 // The worked synthetic example (spec section 5). Everything here is fictional. In particular there is NO registration
 // number, no real address, no real person and no real partner organisation. Values are exactly those in the spec.
 //
-// Not included, on purpose: the accounts document. The synthetic accounts PDF is generated in the next phase, so the
-// accounts selection stays unanswered here (and shows as missing) rather than pointing at something that does not exist.
+// The accounts document is not in VALUES: it is a stored file, so buildExampleAnswers only selects it when the caller
+// passes the stored synthetic accounts document (see accounts-example.js). Without one the accounts selection stays
+// unanswered, rather than pointing at something that does not exist.
 
 export const EXAMPLE_LABEL = 'Synthetic demo example — not a real application or financial filing';
 export const EXAMPLE_ID = 'worked-demo-example';
@@ -76,7 +77,8 @@ export const EXAMPLE_VALUES = Object.freeze(VALUES);
 export const EXAMPLE_FIELD_IDS = Object.freeze(Object.keys(VALUES));
 
 // Answers for exactly the fields above, every one carrying origin synthetic-demo and a visible synthetic source.
-export function buildExampleAnswers(nowIso) {
+// accountsDoc (optional): the stored synthetic accounts document { id, title, filename, updatedAt }.
+export function buildExampleAnswers(nowIso, accountsDoc = null) {
   const out = {};
   for (const [id, value] of Object.entries(VALUES)) {
     const ref = {
@@ -92,6 +94,15 @@ export function buildExampleAnswers(nowIso) {
       origin: 'synthetic-demo',
       sourceRefs: [ref],
       confirmedAt: DEMO_REVIEW.has(id) ? null : nowIso,
+      editedAt: null,
+    };
+  }
+  if (accountsDoc && accountsDoc.id) {
+    out['evidence.accountsId'] = {
+      value: accountsDoc.id,
+      origin: 'synthetic-demo',
+      sourceRefs: [{ kind: 'document', recordId: accountsDoc.id, documentId: accountsDoc.id, title: accountsDoc.title || accountsDoc.filename, updatedAt: accountsDoc.updatedAt || null, reportingPeriod: accountsDoc.period || undefined, synthetic: true, excerpt: EXAMPLE_LABEL }],
+      confirmedAt: nowIso,
       editedAt: null,
     };
   }
