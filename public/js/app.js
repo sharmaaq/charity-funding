@@ -3,6 +3,7 @@ import { DEFAULT_BRIEF, runMockDiscovery } from './discovery.js';
 import { isTimingPreview, withPreviewTiming } from './preview.js';
 import { nextChangeAt, timingMarkers } from './timing.js';
 import { createOrganisation, isOrgHash, parseOrgHash } from './org/index.js';
+import { createApplication, isApplicationHash, parseApplicationHash, appHash, UNAVAILABLE_TEXT } from './application/index.js';
 import {
   applyDiscovery,
   setBrief,
@@ -193,8 +194,10 @@ function doAction(grantId, action) {
   pendingMessage = message;
   if (action === 'plan') {
     keepMessage = true;
-    if (location.hash !== VIEW_HASH.planning) {
-      location.hash = VIEW_HASH.planning; // hashchange triggers render
+    // G-001 has a real application workspace; every other grant keeps the Planning list.
+    const dest = grantId === 'G-001' ? appHash(grantId) : VIEW_HASH.planning;
+    if (location.hash !== dest) {
+      location.hash = dest; // hashchange triggers render
       return;
     }
   }
@@ -224,7 +227,7 @@ function reasonText(grant, entry) {
   return grant.reason;
 }
 
-function grantItem(grant, entry, actionNames, showMarkers = false) {
+function grantItem(grant, entry, actionNames, showMarkers = false, extra = null) {
   const actions = actionNames.map((a) =>
     h('button', {
       type: 'button',
@@ -253,6 +256,7 @@ function grantItem(grant, entry, actionNames, showMarkers = false) {
       h('p', { class: 'reason', text: reasonText(grant, entry) }),
     ),
     h('div', { class: 'actions' }, actions),
+    extra ? h('div', { class: 'app-extra' }, extra(grant)) : null,
     h('details', null,
       h('summary', { text: 'Details and sources' }),
       h('div', null,
@@ -266,12 +270,12 @@ function grantItem(grant, entry, actionNames, showMarkers = false) {
   );
 }
 
-function grantList(grants, actionsFor, showMarkers = false) {
+function grantList(grants, actionsFor, showMarkers = false, extra = null) {
   return h('div', { class: 'grants-wrap' },
     h('div', { class: 'grants-head', 'aria-hidden': 'true' },
       h('span', { text: 'Grant' }), h('span', { text: 'Amount and timing' }), h('span', { text: 'Suitability' }), h('span', { text: 'Actions' })),
     h('ul', { class: 'grants', 'aria-label': 'Grants' },
-      grants.map((g) => grantItem(g, state.grants[g.id], actionsFor(g, state.grants[g.id]), showMarkers))),
+      grants.map((g) => grantItem(g, state.grants[g.id], actionsFor(g, state.grants[g.id]), showMarkers, extra))),
   );
 }
 
@@ -349,7 +353,9 @@ function renderPlanning() {
     h('p', null, 'Grants you chose to plan an application for in Discovery appear here. Nothing on this page is submitted anywhere.'),
   ];
   if (sel.visible.length > 0) {
-    parts.push(grantList(sel.visible, () => ['abandon']));
+    parts.push(grantList(sel.visible, () => ['abandon'], false, (g) => (g.id === 'G-001'
+      ? application.planningCard(g.id)
+      : h('p', { class: 'app-unavailable', 'data-testid': 'app-unavailable', text: UNAVAILABLE_TEXT }))));
   } else {
     parts.push(h('div', { class: 'empty', 'data-testid': 'empty' },
       h('p', null, h('strong', null, 'No grants selected for planning.')),
@@ -374,7 +380,7 @@ function renderTracking() {
 function renderNav(route) {
   const items = [
     ['Discovery', VIEW_HASH.new, route.area === 'discovery'],
-    ['Planning & submission', VIEW_HASH.planning, route.area === 'planning'],
+    ['Planning & submission', VIEW_HASH.planning, route.area === 'planning' || route.area === 'application'],
     ['Tracking', '#/tracking', route.area === 'tracking'],
   ];
   navEl.setAttribute('aria-label', 'Main');
@@ -387,14 +393,17 @@ function currentRoute() {
   if (ROUTES[hash]) return ROUTES[hash];
   const org = isOrgHash(hash) ? parseOrgHash(hash) : null;
   if (org) return { area: 'organisation', org };
+  const app = isApplicationHash(hash) ? parseApplicationHash(hash) : null;
+  if (app) return { area: 'application', app };
   return ROUTES[DEFAULT_ROUTE];
 }
 
 function isKnownHash(hash) {
-  return Boolean(ROUTES[hash] || (isOrgHash(hash) && parseOrgHash(hash)));
+  return Boolean(ROUTES[hash] || (isOrgHash(hash) && parseOrgHash(hash)) || (isApplicationHash(hash) && parseApplicationHash(hash)));
 }
 
 function fallbackHash(hash) {
+  if (isApplicationHash(hash)) return VIEW_HASH.planning;
   return isOrgHash(hash) ? ORG_HOME : DEFAULT_ROUTE;
 }
 
@@ -411,6 +420,23 @@ const organisation = createOrganisation({
   },
 });
 
+// The application workspace (#/planning/<grant>/application...) lives in js/application/ and renders itself into <main>.
+const application = createApplication({
+  mount: mainEl,
+  titleEl,
+  now,
+  announce: (text) => announce(text),
+  navigate: (hash) => {
+    if (location.hash === hash) render();
+    else location.hash = hash; // hashchange triggers render
+  },
+  getGrant: (id) => {
+    const g = grantById(id);
+    const e = state.grants[id];
+    return g && e ? { id, name: g.name, funder: g.funder, workflow: e.workflow } : null;
+  },
+});
+
 function setBrandActive(on) {
   if (on) brandLink.setAttribute('aria-current', 'page');
   else brandLink.removeAttribute('aria-current');
@@ -419,7 +445,22 @@ function setBrandActive(on) {
 function render(opts = {}) {
   const route = currentRoute();
   renderNav(route);
+  if (route.area === 'application') {
+    clearTimeout(tickTimer);
+    tickTimer = null;
+    organisation.hide();
+    setBrandActive(false);
+    panelEl.hidden = true;
+    updateNotice();
+    if (pendingMessage) {
+      announce(pendingMessage.text, pendingMessage.hash, pendingMessage.link);
+      pendingMessage = null;
+    }
+    application.show(route.app, { focus: opts.focus !== false });
+    return;
+  }
   if (route.area === 'organisation') {
+    application.hide();
     clearTimeout(tickTimer);
     tickTimer = null;
     setBrandActive(true);
@@ -432,6 +473,7 @@ function render(opts = {}) {
     return;
   }
   organisation.hide();
+  application.hide();
   setBrandActive(false);
   let parts;
   if (route.area === 'discovery') parts = renderDiscovery(route.view);
@@ -495,7 +537,7 @@ briefEl.addEventListener('input', () => {
 window.addEventListener('pagehide', saveBrief);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') saveBrief();
-  else if (currentRoute().area !== 'organisation') render({ focus: false });
+  else if (currentRoute().area !== 'organisation' && currentRoute().area !== 'application') render({ focus: false });
 });
 
 function showFreshResult(grantId) {
@@ -564,6 +606,18 @@ window.addEventListener('hashchange', async () => {
     history.replaceState(null, '', fallbackHash(location.hash));
   }
   if (leaving) return;
+  // Leaving the application area: its autosave is flushed first; only a failed save asks before discarding.
+  if (application.isDirty() && location.hash !== shownHash && !isApplicationHash(location.hash)) {
+    leaving = true;
+    const saved = await application.flush();
+    const leave = saved ? true : await application.confirmLeave();
+    leaving = false;
+    if (!leave) {
+      history.replaceState(null, '', shownHash); // stay: the answers are untouched
+      return;
+    }
+    application.discard();
+  }
   if (organisation.isDirty() && location.hash !== shownHash) {
     leaving = true;
     const leave = await organisation.confirmLeave();

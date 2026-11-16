@@ -30,6 +30,15 @@ Key proposal: retain browser-local durable data; introduce temporary request-sco
 
 Documentation only. No application implementation, accounts, authenticated funder drafts, real submissions, emails, commits, pushes or deployments performed in this task. Document validation recorded in docs/status.md after writing. Application tests not run.
 
+### Phase A: questionnaire, storage and prefill (2026-11-16, Claude implementing model)
+
+Browser-only. G-001 Plan application now opens `#/planning/G-001/application`: six sections, per-field source chips and a source drawer, autosave (750 ms, Saving / Saved / Not saved), status strip, one draft per grant, planning card, Refresh suggestions, Use information from a document, the worked synthetic example, and a review screen (answers, finance totals and gaps, warnings, missing information as links). The package, PDF and run controls are not built; Review shows "Document preparation and the submission demo arrive in the next update." Tracking is unchanged. The organisation database moved from schema 1 to 2 by adding `applications`, `submissionSnapshots`, `submissionFiles`, `submissionAttempts` and `submissionReceipts`; existing stores are untouched.
+
+- Local results: unit 81 of 81 (66 existing plus 15 new); Playwright 234 of 234 (phone-360 73, phone-390 73, desktop-1280 88). No existing test was edited.
+- Evidence: `evidence/S3-001-A-*.png` at 1280, 390 and 360 px (source drawer, prefilled form, finance check, review with missing information, review of the worked example).
+- Not done in this phase, by design: proposal PDF, package, synthetic accounts PDF, server API, test portal, browser runner, receipts, Tracking. The worked example leaves the accounts document unselected because its PDF is a Phase B file.
+- Deployment and live verification: recorded below once done.
+
 ## Handoff
 
 Claude reads spec.md and research.md, reconciles the in-progress document-store implementation, writes ticket-local plan.md and implements the complete controlled demo through the shared workflow. Record demo and live status separately. Real portal discovery requires an authorised applicant session; live submission also requires an actual reviewed application and explicit send authority. These are external prerequisites, not blockers to building the demo.

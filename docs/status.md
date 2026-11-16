@@ -8,6 +8,8 @@
 - Claude next: reconcile in-progress S2-001 and Discovery work, review proposed defaults, write ticket-local plan.md, implement/test/ship controlled demo under shared workflow. Report UI/package, document integration, demo automation and live readiness separately. Do not replace browser execution with a timer or invent live selectors.
 - Documentation task only; application code unchanged, application tests not run. All local Markdown links resolved across ten new/updated documents; REQ-022 through REQ-028 and both expanded baselines checked; git diff --check passed. Other work appeared concurrently in S1-002/S2-001 ticket records and a document-store mockup; preserved untouched. No commit/push/deployment performed by ChatGPT in this task.
 
+- S3-001 Phase A implemented 2026-11-16 (Claude implementing model): G-001 application workspace, prefill with provenance, worked synthetic example, review screen, schema 2 database upgrade. Local tests pass (unit 81, Playwright 234). Phases B and C (PDF and package; API, test portal, runner, receipts) not started. Deployment recorded in the ticket.
+
 Last updated: 2026-11-15 (Claude: S0-003 reviewed and planned; ChatGPT's S1-001 notes preserved).
 
 ## Progress
