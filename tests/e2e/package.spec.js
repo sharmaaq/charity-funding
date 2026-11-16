@@ -45,7 +45,9 @@ test('worked example: package, hash, confirmations, disabled run control, frozen
   await expect(page.getByLabel('Run the demo transfer using this package')).not.toBeChecked();
   await expect(page.getByTestId('run-demo')).toBeDisabled();
   await expect(page.getByTestId('run-demo')).toHaveText('Run submission demo');
-  await expect(page.getByTestId('automation-unavailable')).toContainText('Automation unavailable');
+  // Phase C: the runner is available, so the note explains the run instead of saying automation is unavailable
+  await expect(page.getByTestId('automation-unavailable')).toContainText('takes up to 90 seconds');
+  await expect(page.getByTestId('automation-unavailable')).toContainText('Keep this page open');
   await expect(panel).not.toContainText(/\bSubmit\b/);
   await expect(panel.locator('summary', { hasText: 'Live submission' })).toBeVisible();
   const panelText = await panel.evaluate((el) => el.textContent);
@@ -67,7 +69,7 @@ test('worked example: package, hash, confirmations, disabled run control, frozen
   expect(snaps[0].attachments[1].synthetic).toBe(true);
   expect(JSON.stringify(snaps[0].answers)).not.toContain('companyNumber');
   expect((await readStore(page, 'submissionFiles'))).toHaveLength(2);
-  await expect(page.getByTestId('run-demo')).toBeDisabled(); // still disabled: the runner arrives in the next phase
+  await expect(page.getByTestId('run-demo')).toBeEnabled(); // Phase C: a frozen, confirmed package can be run
 
   // download the proposal: a real PDF
   const [dl] = await Promise.all([page.waitForEvent('download'), page.getByTestId('download-proposal').click()]);

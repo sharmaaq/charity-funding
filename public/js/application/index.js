@@ -15,6 +15,8 @@ import { refreshDialog, excerptDialog } from './dialogs.js';
 import { buildWorkspace } from './workspace.js';
 import { buildReview } from './review.js';
 import { PLANNING_HASH, appHash, fieldHash, reviewHash } from './routes.js';
+import { activeRunForGrant, subscribe } from './submission-client.js';
+import { buildTracking } from './tracking.js';
 
 export { isApplicationHash, parseApplicationHash, appHash, reviewHash } from './routes.js';
 export const UNAVAILABLE_TEXT = 'Application preparation not yet available for this funder';
@@ -225,6 +227,20 @@ export function createApplication({ mount, titleEl, now, announce, navigate, get
     services: ensureServices,
     nowIso,
     announce,
+    // A completed receipt is immutable. A revised draft is a new revision of the same answers; the next review starts
+    // with both confirmations clear, and only a changed package can be run again (no automatic second submission).
+    async reviseDraft() {
+      try {
+        const ok = await flush();
+        if (!ok) throw new Error('Your latest changes could not be saved.');
+        const svc = await ensureServices();
+        sess.app = await svc.apps.save(sess.app.id, { expectedRevision: sess.app.draftRevision, answers: sess.answers });
+        announce(`Revised draft created as revision ${sess.app.draftRevision}. The demo receipt for the earlier package is kept unchanged.`);
+        navigate(appHash(sess.grantId));
+      } catch (e) {
+        announce(`The revised draft was not created. ${mapError(e).message}`);
+      }
+    },
     // Stores (or, with null, removes) the manager's own proposal PDF. Saves any pending edits first, then bumps the draft
     // revision, so the review is rebuilt and both confirmations are cleared by the caller.
     async setReplacement(replacement) {
@@ -436,6 +452,9 @@ export function createApplication({ mount, titleEl, now, announce, navigate, get
           h('span', { 'data-testid': 'card-saved', text: ` · Last saved ${formatDateTime(app.updatedAt)}` }),
           h('span', { 'data-testid': 'card-missing', text: ` · ${ev.counts.missing} missing` }),
           h('span', { 'data-testid': 'card-review', text: ` · ${ev.counts.review} need review` }));
+        const receipts = (await svc.apps.listReceipts()).filter((r) => r.applicationId === app.id);
+        if (activeRunForGrant(grantId)) text.append(h('span', { 'data-testid': 'card-demo', text: ' · Demo run in progress' }));
+        else if (receipts.length) text.append(h('span', { 'data-testid': 'card-demo', text: ` · Completed demo (${receipts[0].reference}), nothing sent to the funder` }));
       } catch (e) {
         text.textContent = `The saved draft could not be read: ${mapError(e).message}`;
       }
@@ -455,6 +474,9 @@ export function createApplication({ mount, titleEl, now, announce, navigate, get
     isDirty,
     flush,
     discard() { if (sess) { sess.dirty = false; sess.saveState = 'saved'; clearTimeout(sess.timer); } },
+    isRunActive: (grantId) => !!activeRunForGrant(grantId),
+    onRunChange: subscribe,
+    trackingView: () => buildTracking({ services: ensureServices, getGrant }),
     confirmLeave: () => confirmDialog({
       title: 'Leave without saving?',
       message: 'Your latest changes could not be saved. If you leave this page they are lost.',

@@ -49,3 +49,10 @@ export async function readyReview(page) {
   await expect(page.getByTestId('package-hash')).toHaveText(/^[0-9a-f]{64}$/);
 }
 
+
+// Ticks both demo confirmations and waits until the snapshot is stored (new, or the identical one already stored).
+export async function confirmBoth(page) {
+  await page.getByLabel('I have reviewed these demo answers and documents').check();
+  await page.getByLabel('Run the demo transfer using this package').check();
+  await expect(page.getByTestId('package-status')).toContainText(/saved in this browser/);
+}

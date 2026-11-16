@@ -196,11 +196,11 @@ test('Plan application on a suitable grant opens Planning with one entry', async
   await expect(page.locator('li.grant')).toHaveCount(5);
 });
 
-test('Tracking has the placeholder notice and no buttons inside main', async ({ page }) => {
+// S3-001 replaced the Tracking placeholder with demo receipts; with none recorded it shows the demo notice and an empty state.
+test('Tracking shows the demo-records notice, an empty state and no buttons inside main', async ({ page }) => {
   await page.goto('/#/tracking');
-  await expect(page.getByText('Placeholder - future iteration').first()).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Application status' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Outcomes' })).toBeVisible();
+  await expect(page.getByTestId('tracking-notice')).toContainText('Demo records only');
+  await expect(page.getByTestId('tracking-empty')).toContainText('No demo submissions yet');
   await expect(page.locator('main button')).toHaveCount(0);
   await expect(page.locator('main li.grant')).toHaveCount(0);
 });

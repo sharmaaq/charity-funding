@@ -3,7 +3,7 @@
 - Type: iteration
 - Created: 2026-11-15
 - Agreement: user-requested scope; funder selection and engineering defaults proposed for Claude review
-- Delivery: phases A and B built and shipped 2026-11-16; phase C (API, test portal, runner, receipts) not started. Live portal integration not verified and not in scope to verify
+- Delivery: phases A, B and C built 2026-11-16; the controlled demo runs end to end. The real connector is a disabled capability. Live portal integration not verified and not in scope to verify
 - Owner: ChatGPT specifies; Claude reviews, plans and delegates implementation
 - Predecessor: [S2-001](../../../sprint-2/tickets/S2-001-organisation-document-store/ticket.md); preserve the independently reviewed S1-002 Discovery extension
 - Specification: [spec.md](spec.md); evidence: [research.md](research.md)

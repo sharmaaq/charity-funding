@@ -195,3 +195,31 @@
 .source-notes, .live-note { margin: 12px 0; }
 .source-notes summary, .live-note summary { cursor: pointer; font-weight: 800; color: var(--purple); min-height: 44px; display: flex; align-items: center; }
 .review-block .form-error { margin: 0 0 12px; }
+
+/* ---- demo run, receipts and Tracking (S3-001 phase C) ---- */
+.run-area h4 { margin: 16px 0 6px; font-size: 1rem; color: var(--purple); }
+.milestones { list-style: none; margin: 0 0 12px; padding: 0; border-top: 1px solid var(--line); }
+.milestones li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.milestones .ms-label { font-weight: 700; }
+.milestones .ms-state { color: var(--muted); }
+.milestones li::before { content: '○'; flex: 0 0 1.5em; text-align: center; color: var(--muted); }
+.milestones li[data-status="complete"]::before { content: '✓'; color: var(--ok-fg); }
+.milestones li[data-status="current"]::before { content: '●'; color: var(--purple); }
+.milestones li[data-status="failed"]::before { content: '✕'; color: var(--bad-fg); }
+.milestones li[data-status="current"] .ms-state { color: var(--purple); font-weight: 700; }
+.milestones li[data-status="failed"] .ms-state { color: var(--bad-fg); font-weight: 700; }
+.milestones li { padding-left: 2px; }
+.milestones li > .ms-label { flex: 1 1 10rem; }
+.run-complete { border: 2px solid var(--ok-fg); background: var(--ok-bg); padding: 10px 14px; margin: 12px 0; border-radius: 2px; }
+.run-complete h4 { color: var(--ok-fg); margin-top: 4px; }
+.run-complete code, .receipt-card code { overflow-wrap: anywhere; word-break: break-all; }
+.run-failed h4 { margin-top: 0; color: var(--bad-fg); }
+.tracking .track-app { border: 1px solid var(--line); background: #fff; padding: 12px 16px; margin: 0 0 16px; }
+.tracking h2 { font-size: 1.25rem; margin: 0 0 4px; }
+.tracking h3 { font-size: 1rem; margin: 16px 0 6px; }
+.receipt-list, .attempt-list { margin: 0; padding: 0 0 0 20px; }
+.receipt-list { list-style: none; padding: 0; }
+.receipt-card { border-left: 4px solid var(--lime); padding: 6px 12px; margin: 8px 0; }
+.attempt-list li { margin: 6px 0; }
+.demo-badge { background: var(--lilac); color: var(--purple); }
+@media (prefers-reduced-motion: reduce) { .milestones li { transition: none; } }

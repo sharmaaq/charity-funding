@@ -79,9 +79,9 @@ test('Plan application on G-001 opens the workspace with six sections and the ex
   await expect(page.getByTestId('status-strip')).toContainText('Confirmed');
   await expect(page.getByText('Submit to Garfield Weston')).toHaveCount(0);
   await expectNoOverflow(page);
-  // the grant moved to Planning and Tracking is unchanged
+  // the grant moved to Planning; Tracking has no demo records yet (S3-001 Phase C replaced its placeholder)
   await page.goto('/#/tracking');
-  await expect(page.getByText('Placeholder - future iteration').first()).toBeVisible();
+  await expect(page.getByTestId('tracking-empty')).toContainText('No demo submissions yet');
   await expect(page.locator('main button')).toHaveCount(0);
 });
 

@@ -178,6 +178,10 @@ function grantById(id) {
 
 function doAction(grantId, action) {
   const grant = grantById(grantId);
+  if (action === 'abandon' && application.isRunActive(grantId)) {
+    announce(`${grant.name} cannot be abandoned while its demo run is in progress. Wait for the run to finish.`);
+    return;
+  }
   const next = applyAction(state, FIXTURES, grantId, action);
   if (!commit(next)) return;
   let message;
@@ -234,6 +238,9 @@ function grantItem(grant, entry, actionNames, showMarkers = false, extra = null)
       class: BUTTON_CLASS[a] || 'btn',
       'data-action': a,
       'aria-label': `${ACTION_LABELS[a]}: ${grant.name}`,
+      // Abandon is unavailable while a demo run for this grant is in progress (abandoning would not stop it).
+      disabled: a === 'abandon' && application.isRunActive(grant.id) ? true : null,
+      title: a === 'abandon' && application.isRunActive(grant.id) ? 'Unavailable while the demo run is in progress' : null,
       onclick: () => doAction(grant.id, a),
     }, ACTION_LABELS[a]),
   );
@@ -367,14 +374,9 @@ function renderPlanning() {
   return parts;
 }
 
+// Demo receipts and attempt history (S3-001). Funding outcomes remain out of scope.
 function renderTracking() {
-  return [
-    placeholderNotice(),
-    h('p', null, 'Applications and funding outcomes will be followed here in a later iteration. There are no records in this demo.'),
-    h('div', { class: 'template-grid' },
-      templateSection('Application status', 'Future iteration: submitted applications and their status will be listed here. Nothing has been submitted.'),
-      templateSection('Outcomes', 'Future iteration: funding decisions and awarded amounts will be shown here. No outcomes exist in this demo.')),
-  ];
+  return [application.trackingView()];
 }
 
 function renderNav(route) {
@@ -435,6 +437,11 @@ const application = createApplication({
     const e = state.grants[id];
     return g && e ? { id, name: g.name, funder: g.funder, workflow: e.workflow } : null;
   },
+});
+
+// Re-render Planning when a demo run starts or ends, so Abandon and the card status follow it.
+application.onRunChange((run) => {
+  if ((run.phase !== 'running' || run.events.length === 0) && currentRoute().area === 'planning') render({ focus: false });
 });
 
 function setBrandActive(on) {

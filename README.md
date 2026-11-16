@@ -33,9 +33,10 @@ npx playwright install chromium
 Then:
 
 ```
-npm test              # unit tests, then Playwright tests
-npm run test:unit     # node --test, no browser needed
-npm run test:e2e      # Playwright at 360, 390 and 1280 px wide
+npm test                  # unit, integration, then Playwright tests
+npm run test:unit         # node --test, no browser needed
+npm run test:integration  # node --test: demo API, test portal and runner (starts real headless Chromium)
+npm run test:e2e          # Playwright at 360, 390 and 1280 px wide
 ```
 
 The Playwright config starts its own server on port 8091 and uses a fresh browser context for every test.
@@ -56,6 +57,14 @@ The Playwright config starts its own server on port 8091 and uses a fresh browse
 - `public/js/org/repository.js` is the only code that touches the stores; `catalogue()` is the source-access boundary for later features. Test hook: `window.__ORG_TEST_HOOKS__` ({ limits, abortNext }), set before the organisation area opens.
 - Storage-heavy browser tests (`tests/e2e/organisation-storage.spec.js`) run in the desktop project only.
 
+## Guided application and submission demo (Sprint 3, S3-001)
+
+- G-001 (Garfield Weston Regular Grants, core costs) has an application workspace at `#/planning/G-001/application`, a generated proposal PDF and an immutable package (browser only, in the organisation database, now schema 2).
+- **Run submission demo** sends the reviewed package to this app's own server (`POST /api/submission-demo-runs`). The server validates it, then a headless Chromium fills, uploads to, submits and reads a receipt from a **controlled test portal** that runs on `127.0.0.1` for that one request only. Nothing is sent to Garfield Weston or Blackbaud, and the browser in the run cannot reach any other host. Progress streams back as NDJSON; the DEMO receipt is saved in this browser and listed in Tracking.
+- `GET /api/submission-capabilities` reports whether the runner can start (`demoAvailable`) and why live submission is unavailable (`liveAvailable: false`, `liveBlockers`). There is no live mode and no switch for one.
+- One run at a time per instance (429 otherwise); same-origin requests only; 21 MB request limit, 10 MB per file; 90-second run deadline. This is a no-login POC and is not suitable for confidential production applications.
+- Server code: `server/api.js`, `server/manifest.js` (validation shared with the browser modules), `server/multipart.js`, `server/demo-portal.js`, `server/demo-runner.js`, `server/adapters/`. Runtime dependencies: `playwright` (pinned to the test version) and `busboy`.
+
 ## Layout
 
 - `server.js` static server for `public/` only (404 for anything else, including path traversal).
@@ -71,10 +80,10 @@ The Playwright config starts its own server on port 8091 and uses a fresh browse
 Deployment is a separate, reviewed step. From the repository root, with `gcloud` signed in (pass the project explicitly; do not change the default project):
 
 ```
-gcloud run deploy charity-funding --source . --region europe-west1 --project charity-funding-514818 --allow-unauthenticated --max-instances 1 --memory 256Mi
+gcloud run deploy charity-funding --source . --region europe-west1 --project charity-funding-514818 --allow-unauthenticated --max-instances 1 --memory 1Gi --cpu 1 --timeout 180
 ```
 
-This builds from the `Dockerfile` in Cloud Build (Docker is not needed locally). Then check `https://<service-url>/healthz`.
+This builds from the `Dockerfile` in Cloud Build (Docker is not needed locally). The image installs Chromium's headless shell and its system libraries at build time for the submission demo, which needs 1 GiB of memory and a request timeout above the 90-second run deadline. Then check `https://<service-url>/healthz`.
 
 ## Fonts and licences
 

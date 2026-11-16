@@ -19,6 +19,8 @@ export const GRANT_INDEX = 'grantId';
 const DOCUMENTS_STORE = 'documents';
 const SNAPSHOTS_STORE = 'submissionSnapshots';
 const SNAPSHOT_FILES_STORE = 'submissionFiles';
+const ATTEMPTS_STORE = 'submissionAttempts';
+const RECEIPTS_STORE = 'submissionReceipts';
 export const APPLICATION_DB_STORES = Object.freeze(['applications', 'submissionSnapshots', 'submissionFiles', 'submissionAttempts', 'submissionReceipts']);
 
 // Bytes already held by the organisation file store, the frozen packages and the manager-supplied proposals.
@@ -181,6 +183,83 @@ export function createApplicationRepository(db, options = {}) {
     getSnapshotFiles(snapshotId) {
       return run([SNAPSHOT_FILES_STORE], 'readonly', 'getSnapshotFiles', (c) => {
         c.on(c.stores[SNAPSHOT_FILES_STORE].index('snapshotId').getAll(snapshotId), (all) => c.done(all.sort((a, b) => (a.order || 0) - (b.order || 0))));
+      });
+    },
+
+    // ---------------------------------------------------------------- demo-run attempts and receipts (Phase C)
+    // The attempt lock: ONE transaction checks that this snapshot has no receipt and no running attempt, then writes a
+    // running attempt. A second tab or a double click therefore cannot start a second run for the same snapshot.
+    // retryId: deliberately retry an interrupted or failed attempt with the SAME attempt ID (and so the same DEMO reference).
+    acquireAttempt({ applicationId, snapshotId, payloadHash, retryId = null }) {
+      const stamp = now().toISOString();
+      return run([ATTEMPTS_STORE, RECEIPTS_STORE], 'readwrite', 'acquireAttempt', (c) => {
+        const got = {};
+        let pending = 2;
+        const next = () => { if (--pending === 0) write(); };
+        c.on(c.stores[ATTEMPTS_STORE].index('snapshotId').getAll(snapshotId), (v) => { got.attempts = v; next(); });
+        c.on(c.stores[RECEIPTS_STORE].index('applicationId').getAll(applicationId), (v) => { got.receipts = v; next(); });
+        function write() {
+          if (got.receipts.some((r) => r.snapshotId === snapshotId)) { c.fail(new OrgError('already-submitted', 'This exact package already has a demo receipt. Change an answer or a file to prepare a new package.')); return; }
+          if (got.attempts.some((a) => a.state === 'running')) { c.fail(new OrgError('attempt-active', 'A demo run for this package is already in progress, possibly in another tab.')); return; }
+          let attempt;
+          if (retryId) {
+            const prev = got.attempts.find((a) => a.id === retryId);
+            if (!prev || !['interrupted_unknown', 'failed', 'cancelled'].includes(prev.state)) { c.fail(new OrgError('not-found', 'That attempt cannot be retried.')); return; }
+            attempt = { ...prev, state: 'running', step: 'check', startedAt: stamp, endedAt: null, error: null, tries: (prev.tries || 1) + 1, history: [...(prev.history || []), { state: prev.state, error: prev.error || null, events: prev.events, startedAt: prev.startedAt, endedAt: prev.endedAt }], events: [] };
+          } else {
+            attempt = { id: newId(), applicationId, snapshotId, payloadHash, mode: 'demo', state: 'running', step: 'check', events: [], startedAt: stamp, endedAt: null, error: null, receiptId: null, tries: 1, history: [] };
+          }
+          c.stores[ATTEMPTS_STORE].put(attempt);
+          c.afterWrites();
+          c.done(attempt);
+        }
+      });
+    },
+
+    // Final attempt state and (when completed) the receipt, in ONE transaction. A receipt for this attempt that already
+    // exists is kept as it is (unique attemptId index): a duplicate final event never makes a second receipt.
+    finishAttempt(attempt, receipt = null) {
+      return run([ATTEMPTS_STORE, RECEIPTS_STORE], 'readwrite', 'finishAttempt', (c) => {
+        c.on(c.stores[RECEIPTS_STORE].index('attemptId').get(attempt.id), (existing) => {
+          const kept = existing || receipt;
+          const final = { ...attempt, receiptId: kept ? kept.id : null };
+          c.stores[ATTEMPTS_STORE].put(final);
+          if (receipt && !existing) c.stores[RECEIPTS_STORE].add(receipt);
+          c.afterWrites();
+          c.done({ attempt: final, receipt: kept });
+        });
+      });
+    },
+
+    // Running attempts that no live page holds any more become interrupted_unknown. Never retried automatically.
+    markInterrupted(ids, message) {
+      if (!ids.length) return Promise.resolve([]);
+      const stamp = now().toISOString();
+      return run([ATTEMPTS_STORE], 'readwrite', 'markInterrupted', (c) => {
+        const out = [];
+        let pending = ids.length;
+        for (const id of ids) {
+          c.on(c.stores[ATTEMPTS_STORE].get(id), (a) => {
+            if (a && a.state === 'running') {
+              const upd = { ...a, state: 'interrupted_unknown', endedAt: stamp, error: { code: 'INTERRUPTED', message } };
+              c.stores[ATTEMPTS_STORE].put(upd);
+              out.push(upd);
+            }
+            if (--pending === 0) c.done(out);
+          });
+        }
+      });
+    },
+
+    listAttempts() {
+      return run([ATTEMPTS_STORE], 'readonly', 'listAttempts', (c) => {
+        c.on(c.stores[ATTEMPTS_STORE].getAll(), (all) => c.done(all.sort((a, b) => (a.startedAt < b.startedAt ? -1 : a.startedAt > b.startedAt ? 1 : 0))));
+      });
+    },
+
+    listReceipts() {
+      return run([RECEIPTS_STORE], 'readonly', 'listReceipts', (c) => {
+        c.on(c.stores[RECEIPTS_STORE].getAll(), (all) => c.done(all.sort((a, b) => (a.confirmedAt < b.confirmedAt ? 1 : a.confirmedAt > b.confirmedAt ? -1 : 0))));
       });
     },
 

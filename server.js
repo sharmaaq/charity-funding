@@ -2,6 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createApi } from './server/api.js';
 
 const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'public');
 
@@ -28,9 +29,16 @@ function notFound(res) {
   send(res, 404, 'text/plain; charset=utf-8', 'Not found');
 }
 
-export function createServer() {
+// options.api: the /api/* handler (tests inject one with a fake runner). Everything else is static, GET/HEAD only.
+export function createServer(options = {}) {
+  const api = options.api || createApi();
   return http.createServer(async (req, res) => {
     try {
+      if (req.url.startsWith('/api/')) {
+        let apiPath;
+        try { apiPath = new URL(req.url, 'http://localhost').pathname; } catch { return notFound(res); }
+        return await api(req, res, apiPath);
+      }
       if (req.method !== 'GET' && req.method !== 'HEAD') {
         return send(res, 405, 'text/plain; charset=utf-8', 'Method not allowed');
       }
