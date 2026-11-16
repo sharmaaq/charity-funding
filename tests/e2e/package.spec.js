@@ -17,9 +17,10 @@ async function expectNoOverflow(page) {
   expect(sw).toBeLessThanOrEqual(cw);
 }
 
-test('worked example: package, hash, confirmations, disabled run control, frozen snapshot, no external requests', async ({ page }) => {
+test('worked example: package, hash, confirmations, disabled run control, frozen snapshot, no external requests', async ({ page, baseURL }) => {
   const outside = [];
-  page.on('request', (r) => { const u = new URL(r.url()); if (!['127.0.0.1', 'localhost'].includes(u.hostname) && !r.url().startsWith('data:') && !r.url().startsWith('blob:')) outside.push(r.url()); });
+  const own = new URL(baseURL).origin; // the app's own origin, local or deployed
+  page.on('request', (r) => { const u = new URL(r.url()); if (u.origin !== own && !r.url().startsWith('data:') && !r.url().startsWith('blob:')) outside.push(r.url()); });
   await readyReview(page);
 
   await expect(page.getByTestId('review-ready')).toHaveAttribute('data-ready', 'true');

@@ -49,6 +49,7 @@ Browser-only. Built by the implementing model until it stopped on an API overloa
 - Test fix during takeover: the "editing an answer" package test chose the section before the workspace had rendered at phone widths; it now waits for the section title. No application code changed for it.
 - Evidence: `evidence/S3-001-B-*.png` (package panel, confirmed package, overflow blocked, review with package at 1280, 390 and 360 px; proposal pages 1 to 3; synthetic accounts example).
 - Not done in this phase, by design: server API, test portal, browser runner, receipts, Tracking. No request leaves the browser; nothing contacts a funder.
+- Deployed 2026-11-16 to Cloud Run: revision charity-funding-00006-tlm, 100 percent of traffic, https://charity-funding-36580608208.europe-west1.run.app. Live checks: `/`, `/js/application/package.js` and `/vendor/pdf-lib.esm.min.js` return 200. Full Playwright suite against the live URL: 263 of 266 on the first run; the three failures were one test at three widths whose "no external requests" check treated only localhost as the app's own origin. The check now compares against the app's origin; that test then passed 3 of 3 live and locally. The full live suite was not re-run after that test-only change. Commit 90dc886.
 
 ## Handoff
 
