@@ -37,7 +37,7 @@ Browser-only. G-001 Plan application now opens `#/planning/G-001/application`: s
 - Local results: unit 81 of 81 (66 existing plus 15 new); Playwright 234 of 234 (phone-360 73, phone-390 73, desktop-1280 88). No existing test was edited.
 - Evidence: `evidence/S3-001-A-*.png` at 1280, 390 and 360 px (source drawer, prefilled form, finance check, review with missing information, review of the worked example).
 - Not done in this phase, by design: proposal PDF, package, synthetic accounts PDF, server API, test portal, browser runner, receipts, Tracking. The worked example leaves the accounts document unselected because its PDF is a Phase B file.
-- Deployment and live verification: recorded below once done.
+- Deployed 2026-11-16 to Cloud Run: revision charity-funding-00005-4zf, 100 percent of traffic, https://charity-funding-36580608208.europe-west1.run.app. Live checks: `/`, `/js/application/schema.js` and `/application.css` return 200; full Playwright suite against the live URL 234 of 234 pass. Commit 6ca9eb4.
 
 ## Handoff
 
