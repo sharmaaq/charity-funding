@@ -17,3 +17,4 @@ Each sprint lives in `sprint-N/`, starting with [sprint-0](sprint-0/README.md). 
 | [Sprint 1](sprint-1/README.md) | Complete Discovery demo: markers and simulated discovery | S1-001 in progress (user report); S1-002 specified |
 | [Sprint 2](sprint-2/README.md) | Organisation information and document store | S2-001 planned; queued behind Sprint 1 |
 | [Sprint 3](sprint-3/README.md) | Guided application and automated submission demonstration | S3-001 planned in three phases; queued behind S2-001 |
+| [Sprint 4](sprint-4/README.md) | Multi-charity platform: sign-in, tenancy, server storage, AI discovery, themes | S4-001 planned; awaiting user approval |

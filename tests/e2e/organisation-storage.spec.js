@@ -1,5 +1,6 @@
-// Storage-heavy tests: real IndexedDB, real bytes. Run in the desktop project only (see playwright.config.js).
-import { test, expect } from '@playwright/test';
+// Storage-heavy tests: real server storage, real bytes. Run in the desktop project only (see playwright.config.js).
+import { test, expect, settled } from './base.js';
+import { readStore, orgApi, fillStorage } from './package-helpers.js';
 import { createHash, randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -7,7 +8,6 @@ import path from 'node:path';
 
 const NOW = '2026-11-15T10:00:00Z';
 const MIB = 1024 * 1024;
-const GRANT_KEY = 'charity-funding.demo.v1';
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript((now) => { window.__DEMO_NOW__ = now; }, NOW);
@@ -51,39 +51,16 @@ async function upload(page, files) {
   await page.getByTestId('doc-file-input').setInputFiles(files);
 }
 
-// Raw read of every store, independent of the app's repository code.
+// What the server holds, read through the dev-only state endpoint and the document download route (independent of the
+// app's code). `files` has one entry for every document whose bytes can be downloaded.
 async function dump(page) {
-  return page.evaluate(() => new Promise((resolve, reject) => {
-    const open = indexedDB.open('charity-funding.organisation');
-    open.onerror = () => reject(open.error);
-    open.onsuccess = () => {
-      const db = open.result;
-      const names = ['meta', 'bids', 'documents', 'files'];
-      const tx = db.transaction(names, 'readonly');
-      const out = { version: db.version };
-      let pending = names.length;
-      for (const n of names) {
-        const q = tx.objectStore(n).getAll();
-        q.onsuccess = () => {
-          out[n] = n === 'files' ? q.result.map((r) => ({ id: r.id, size: r.blob.size })) : q.result;
-          if (--pending === 0) { db.close(); resolve(out); }
-        };
-      }
-    };
-  }));
-}
-
-// Calls the real repository from inside the page (a second connection to the same database).
-async function withRepo(page, fn, arg) {
-  return page.evaluate(async ({ src, arg }) => {
-    const { openDb } = await import('/js/org/db.js');
-    const { createRepository } = await import('/js/org/repository.js');
-    const db = await openDb();
-    try {
-      // eslint-disable-next-line no-new-func
-      return await (new Function('repo', 'arg', `return (${src})(repo, arg)`))(createRepository(db), arg);
-    } finally { db.close(); }
-  }, { src: fn.toString(), arg });
+  const [bids, documents, meta] = await Promise.all([readStore(page, 'bids'), readStore(page, 'documents'), readStore(page, 'meta')]);
+  const files = [];
+  for (const d of documents) {
+    const res = await page.request.get(`/api/charities/your-place/documents/${d.id}/file`);
+    if (res.ok()) files.push({ id: d.id, size: (await res.body()).length });
+  }
+  return { bids, documents, files, meta };
 }
 
 test('byte integrity: PDF, DOCX, XLSX, CSV, TXT, PNG and JPEG survive reload and download unchanged (SHA-256)', async ({ page }) => {
@@ -146,10 +123,9 @@ test('limits: exactly 10 MiB accepted, one byte over rejected, zero-byte and uns
   expect(after.documents.length).toBe(after.files.length);
 });
 
-test('aggregate cap is enforced at commit (lowered override) and leaves earlier files stored', async ({ page }) => {
+test('aggregate cap is enforced at commit and leaves earlier files stored', async ({ page }) => {
   await page.goto('/');
-  const seedTotal = await withRepo(page, async (repo) => { await repo.seedOnce(); return (await repo.usage()).totalBytes; });
-  await page.evaluate((cap) => { window.__ORG_TEST_HOOKS__ = { limits: { maxTotalBytes: cap } }; }, seedTotal + 10000);
+  await fillStorage(page, 10000);
   await openDocs(page);
   const mk = (n) => ({ name: n, mimeType: 'text/plain', buffer: Buffer.alloc(4000, 65) });
   await upload(page, [mk('a.txt'), mk('b.txt'), mk('c.txt')]);
@@ -157,7 +133,7 @@ test('aggregate cap is enforced at commit (lowered override) and leaves earlier 
   const results = page.getByTestId('upload-results');
   await expect(results).toContainText('Upload results: 2 of 3 uploaded');
   await expect(results.locator('li[data-ok="false"]')).toContainText('c.txt');
-  await expect(results.locator('li[data-ok="false"]')).toContainText('limit');
+  await expect(results.locator('li[data-ok="false"]')).toContainText('not enough room');
   await expect(docRow(page, 'a.txt')).toHaveCount(1);
   await expect(docRow(page, 'b.txt')).toHaveCount(1);
   await expect(docRow(page, 'c.txt')).toHaveCount(0);
@@ -190,7 +166,7 @@ test('staged bid files: Cancel leaves no documents or blobs', async ({ page }) =
   expect(after.bids.length).toBe(3);
 });
 
-test('a bid save whose transaction is forced to abort changes nothing; the retry then commits everything together', async ({ page }) => {
+test('a bid save the server refuses changes nothing; the retry then commits everything together', async ({ page }) => {
   await openBidEdit(page, 'Skills for independent living');
   const before = await dump(page);
   const bidBefore = before.bids.find((b) => b.title === 'Skills for independent living');
@@ -206,8 +182,12 @@ test('a bid save whose transaction is forced to abort changes nothing; the retry
   await page.getByRole('button', { name: '+ Attach supporting document' }).click();
   await page.getByTestId('bid-file-input').setInputFiles([SAMPLES.pdf, SAMPLES.png]);
 
-  // inject the failure through the repository's test hook: abort after every write is queued, before commit
-  await page.evaluate(() => { window.__ORG_TEST_HOOKS__ = { abortNext: 'saveBid' }; });
+  // the first save is refused at the network boundary
+  let refuse = true;
+  await page.route('**/bids/*', (route) => {
+    if (refuse && route.request().method() === 'PUT') { refuse = false; return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ code: 'aborted' }) }); }
+    return route.continue();
+  });
   await page.getByRole('button', { name: 'Save changes' }).click();
   await expect(page.locator('.form-error')).toContainText('The bid was not saved');
   await expect(page).toHaveURL(/\/edit$/);
@@ -220,9 +200,9 @@ test('a bid save whose transaction is forced to abort changes nothing; the retry
   expect(mid.bids.find((b) => b.id === bidBefore.id)).toEqual(bidBefore); // record untouched
   expect(mid.documents.map((d) => d.id).sort()).toEqual(before.documents.map((d) => d.id).sort()); // no new docs, none removed
   expect(mid.documents.filter((d) => d.ownerId === bidBefore.id)).toEqual(attBefore); // metadata edits not applied
-  expect(mid.files.map((f) => f.id).sort()).toEqual(before.files.map((f) => f.id).sort()); // no new blobs, none removed
+  expect(mid.files.map((f) => f.id).sort()).toEqual(before.files.map((f) => f.id).sort()); // no new files, none removed
 
-  // retry (the hook was one-shot): everything lands in one commit
+  // retry: everything lands in one commit
   await page.getByRole('button', { name: 'Save changes' }).click();
   await expect(page.getByRole('heading', { name: 'Skills (edited)', level: 2 })).toBeVisible();
   await expect(live(page)).toContainText('Past bid saved.');
@@ -236,10 +216,30 @@ test('a bid save whose transaction is forced to abort changes nothing; the retry
   expect(end.bids.find((b) => b.id === bidBefore.id).createdAt).toBe(bidBefore.createdAt); // id and creation stable
 });
 
+test('a bid save that does not fit in the file store is refused by the server as one transaction: nothing changes', async ({ page }) => {
+  await openBidEdit(page, 'Skills for independent living');
+  await fillStorage(page, 500);
+  const before = await dump(page);
+  await page.getByLabel('Bid title').fill('Never stored');
+  await page.getByRole('button', { name: 'Remove oakfield-feedback-example.txt' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Remove file' }).click();
+  await page.getByRole('button', { name: '+ Attach supporting document' }).click();
+  await page.getByTestId('bid-file-input').setInputFiles([SAMPLES.pdf]);
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await expect(page.locator('.form-error')).toContainText('The bid was not saved');
+  await expect(page.locator('.form-error')).toContainText('not enough room');
+  const after = await dump(page);
+  expect(after.bids).toEqual(before.bids);
+  expect(after.documents).toEqual(before.documents);
+  expect(after.files).toEqual(before.files);
+});
+
 test('a quota failure on an organisation upload is reported honestly and stores nothing', async ({ page }) => {
   await openDocs(page);
   const before = await dump(page);
-  await page.evaluate(() => { window.__ORG_TEST_HOOKS__ = { abortNext: 'uploadDocument', code: 'quota' }; });
+  await page.route('**/api/charities/*/documents', (route) => (route.request().method() === 'POST'
+    ? route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ code: 'quota' }) })
+    : route.continue()));
   await upload(page, [SAMPLES.txt]);
   await page.getByRole('button', { name: 'Upload 1 document' }).click();
   await expect(page.getByTestId('upload-results')).toContainText('Upload results: 0 of 1 uploaded');
@@ -255,8 +255,9 @@ const live = (page) => page.locator('#live');
 test('deleting a bid removes only its own documents and blobs; organisation documents and grant state are untouched', async ({ page }) => {
   await page.goto('/');
   await page.locator('li.grant[data-id="G-001"] button[data-action="pass"]').click();
-  const grantBefore = await page.evaluate((k) => localStorage.getItem(k), GRANT_KEY);
-  expect(grantBefore).toContain('passed');
+  await settled(page);
+  const grantBefore = await readStore(page, 'decisions');
+  expect(JSON.stringify(grantBefore)).toContain('passed');
   await page.goto('/#/organisation/bids');
   const before = await dump(page);
   const bid = before.bids.find((b) => b.title === 'Skills for independent living');
@@ -273,16 +274,18 @@ test('deleting a bid removes only its own documents and blobs; organisation docu
   expect(after.documents.map((d) => d.id).sort()).toEqual(expectedDocs);
   expect(after.files.map((f) => f.id).sort()).toEqual(expectedDocs);
   expect(after.documents.filter((d) => d.ownerType === 'organisation').length).toBe(4);
-  expect(await page.evaluate((k) => localStorage.getItem(k), GRANT_KEY)).toBe(grantBefore);
+  expect(await readStore(page, 'decisions')).toEqual(grantBefore);
 });
 
-test('deleted sample content stays deleted after reload: the seed runs once', async ({ page }) => {
+test('deleted sample content stays deleted after reload: nothing reseeds it', async ({ page }) => {
   await page.goto('/#/organisation/documents');
   await expect(docRows(page)).toHaveCount(4);
-  await withRepo(page, async (repo) => {
-    for (const b of await repo.listBids()) await repo.deleteBid(b.id);
-    for (const d of await repo.listDocuments()) await repo.deleteDocument(d.id);
-  });
+  const org = orgApi(page);
+  for (const b of await (await page.request.get('/api/charities/your-place/bids')).json()) {
+    const res = await page.request.delete(`/api/charities/your-place/bids/${b.id}`, { headers: { Origin: new URL(page.url()).origin } });
+    expect(res.ok()).toBe(true);
+  }
+  for (const d of await org.listDocuments()) await org.deleteDocument(d.id);
   await page.reload();
   await expect(page.getByText('No documents yet.')).toBeVisible();
   await expect(page.getByRole('link', { name: /^Past bids/ })).toContainText('0');
@@ -290,117 +293,27 @@ test('deleted sample content stays deleted after reload: the seed runs once', as
   await expect(page.getByText('No past bids yet.')).toBeVisible();
   const d = await dump(page);
   expect(d.bids.length + d.documents.length + d.files.length).toBe(0);
-  expect(d.meta.map((m) => m.key).sort()).toEqual(['profile', 'seed']);
   await page.reload();
   await expect(page.getByText('No past bids yet.')).toBeVisible();
 });
 
-test('a second browser context starts with fresh seed data; the first keeps its edits', async ({ page, browser }) => {
+test('a second browser context for the same user sees the same saved data (it is held on the server)', async ({ page, browser }) => {
   await page.goto('/#/organisation');
   await page.getByRole('button', { name: 'Edit organisation information' }).click();
   await page.getByLabel('What the charity does').fill('First context overview');
   await page.getByRole('button', { name: 'Save information' }).click();
   await expect(page.getByTestId('overview-text')).toHaveText('First context overview');
-  await withRepo(page, async (repo) => { for (const b of await repo.listBids()) await repo.deleteBid(b.id); });
+  for (const b of await (await page.request.get('/api/charities/your-place/bids')).json()) {
+    await page.request.delete(`/api/charities/your-place/bids/${b.id}`, { headers: { Origin: new URL(page.url()).origin } });
+  }
 
   const ctx2 = await browser.newContext();
   const p2 = await ctx2.newPage();
   await p2.addInitScript((now) => { window.__DEMO_NOW__ = now; }, NOW);
   await p2.goto('/#/organisation');
-  await expect(p2.getByTestId('overview-text')).toContainText('YOR Plc is a demo charity');
-  await expect(bidRows(p2)).toHaveCount(3);
+  await expect(p2.getByTestId('overview-text')).toHaveText('First context overview');
+  await expect(p2.getByRole('link', { name: /^Past bids/ })).toContainText('0');
   await ctx2.close();
-
-  await page.reload();
-  await expect(page.getByTestId('overview-text')).toHaveText('First context overview');
-  await expect(page.getByRole('link', { name: /^Past bids/ })).toContainText('0');
-});
-
-for (const mode of ['throws', 'error-event']) {
-  test(`IndexedDB unavailable (${mode}): read-only content, mutations disabled and explained, grant triage still works`, async ({ page }) => {
-    await page.addInitScript((m) => {
-      indexedDB.open = () => {
-        if (m === 'throws') throw new DOMException('blocked by policy', 'SecurityError');
-        const req = { error: new DOMException('nope', 'UnknownError') };
-        setTimeout(() => req.onerror && req.onerror({ preventDefault() {} }), 0);
-        return req;
-      };
-    }, mode);
-    await page.goto('/#/organisation');
-    await expect(page.getByTestId('read-only-note')).toContainText('Read-only: saving is unavailable in this browser.');
-    await expect(bidRows(page)).toHaveCount(3);
-    await expect(page.getByRole('button', { name: 'Edit organisation information' })).toBeDisabled();
-    await expect(page.getByRole('button', { name: '+ Add past bid' })).toBeDisabled();
-    await expect(page.getByRole('button', { name: '+ Add past bid' })).toHaveAttribute('aria-describedby', 'org-readonly-note');
-    await page.getByRole('link', { name: /^Documents/ }).click();
-    await expect(docRows(page)).toHaveCount(4);
-    await expect(page.getByRole('button', { name: /Upload documents/ })).toBeDisabled();
-    await expect(docRows(page).first().getByRole('button', { name: /Edit details/ })).toBeDisabled();
-    await expect(docRows(page).first().getByRole('button', { name: /^Delete/ })).toBeDisabled();
-    await expect(page.getByTestId('org-storage-notice')).toBeVisible();
-    // grant triage uses localStorage and is unaffected
-    await page.goto('/#/discovery/new');
-    await page.locator('li.grant[data-id="G-001"] button[data-action="pass"]').click();
-    await page.reload();
-    await page.goto('/#/discovery/passed');
-    await expect(page.locator('li.grant[data-id="G-001"]')).toBeVisible();
-    await expect(page.locator('#storage-notice')).toBeHidden();
-  });
-}
-
-test('unknown schema: a message is shown and the existing database is left exactly as it was', async ({ page }) => {
-  await page.goto('/');
-  await page.evaluate(() => new Promise((resolve, reject) => {
-    const r = indexedDB.open('charity-funding.organisation', 7);
-    r.onupgradeneeded = () => { r.result.createObjectStore('meta', { keyPath: 'key' }).put({ key: 'future', note: 'do not touch' }); };
-    r.onsuccess = () => { r.result.close(); resolve(); };
-    r.onerror = () => reject(r.error);
-  }));
-  await page.goto('/#/organisation');
-  await page.reload();
-  await expect(page.getByRole('heading', { name: 'Organisation information is not available' })).toBeVisible();
-  await expect(page.getByRole('alert').filter({ hasText: 'different version' })).toContainText('Nothing has been changed or deleted');
-  await expect(bidRows(page)).toHaveCount(0);
-  const info = await page.evaluate(() => new Promise((resolve) => {
-    const r = indexedDB.open('charity-funding.organisation');
-    r.onsuccess = () => {
-      const db = r.result;
-      const names = [...db.objectStoreNames];
-      const q = db.transaction('meta').objectStore('meta').getAll();
-      q.onsuccess = () => { db.close(); resolve({ version: db.version, names, meta: q.result }); };
-    };
-  }));
-  expect(info.version).toBe(7);
-  expect(info.names).toEqual(['meta']);
-  expect(info.meta).toEqual([{ key: 'future', note: 'do not touch' }]);
-  await page.getByRole('button', { name: 'Retry' }).click();
-  await expect(page.getByRole('heading', { name: 'Organisation information is not available' })).toBeVisible();
-  // grant triage is independent
-  await page.goto('/#/discovery/new');
-  await page.locator('li.grant[data-id="G-001"] button[data-action="pass"]').click();
-  await expect(page.locator('li.grant[data-id="G-001"]')).toHaveCount(0);
-});
-
-test('an unreadable record shows a message and nothing is deleted', async ({ page }) => {
-  await page.goto('/#/organisation/bids');
-  await expect(bidRows(page)).toHaveCount(3);
-  await page.evaluate(() => new Promise((resolve, reject) => {
-    const r = indexedDB.open('charity-funding.organisation');
-    r.onsuccess = () => {
-      const db = r.result;
-      const tx = db.transaction('bids', 'readwrite');
-      tx.objectStore('bids').put({ id: 'broken', nonsense: true });
-      tx.oncomplete = () => { db.close(); resolve(); };
-      tx.onerror = () => reject(tx.error);
-    };
-  }));
-  await page.reload();
-  await expect(page.getByRole('alert')).toContainText('could not be read');
-  await expect(page.getByRole('alert')).toContainText('Nothing has been changed or deleted');
-  const d = await dump(page);
-  expect(d.bids.length).toBe(4);
-  expect(d.documents.length).toBe(8);
-  expect(d.files.length).toBe(8);
 });
 
 test('catalogue: profile, all bids with outcome, summary, feedback and notes, every live document with bytes by ID; deleted sources are absent', async ({ page }) => {
@@ -408,14 +321,10 @@ test('catalogue: profile, all bids with outcome, summary, feedback and notes, ev
   await upload(page, [SAMPLES.pdf]);
   await page.getByRole('button', { name: 'Upload 1 document' }).click();
   await expect(docRow(page, 'report.pdf')).toHaveCount(1);
-  const cat = await withRepo(page, async (repo) => {
-    const c = await repo.catalogue();
-    const blobs = {};
-    for (const d of c.documents) { const b = await repo.getBlob(d.id); blobs[d.id] = b ? b.size : null; }
-    return { c, blobs };
-  });
-  const { c, blobs } = cat;
-  expect(c.profile.name).toBe('YOR Plc');
+  const c = await (await page.request.get('/api/charities/your-place/catalogue')).json();
+  const blobs = {};
+  for (const d of c.documents) { const r = await page.request.get(`/api/charities/your-place/documents/${d.id}/file`); blobs[d.id] = r.ok() ? (await r.body()).length : null; }
+  expect(c.profile.name).toBe('Your Place');
   expect(c.profile.overview).toContain('demo charity');
   expect(c.bids.length).toBe(3);
   const unsuccessful = c.bids.find((b) => b.outcome === 'unsuccessful');
@@ -441,15 +350,15 @@ test('catalogue: profile, all bids with outcome, summary, feedback and notes, ev
   await docRow(page, 'report.pdf').getByRole('button', { name: /^Delete/ }).click();
   await page.getByRole('button', { name: 'Delete document' }).click();
   await expect(docRow(page, 'report.pdf')).toHaveCount(0);
-  const gone = await withRepo(page, async (repo, id) => ({ cat: (await repo.catalogue()).documents.map((d) => d.id), blob: await repo.getBlob(id) }), removed.id);
-  expect(gone.cat).not.toContain(removed.id);
-  expect(gone.blob).toBeNull();
+  const gone = await (await page.request.get('/api/charities/your-place/catalogue')).json();
+  expect(gone.documents.map((d) => d.id)).not.toContain(removed.id);
+  expect((await page.request.get(`/api/charities/your-place/documents/${removed.id}/file`)).status()).toBe(404);
 });
 
-test('uploaded content never reaches the network: every request is a same-origin GET', async ({ page, baseURL }) => {
+test('uploaded content only goes to our own origin, and only to the charity API paths', async ({ page, baseURL }) => {
   const origin = new URL(baseURL).origin;
   const seen = [];
-  page.on('request', (r) => seen.push({ method: r.method(), url: r.url(), body: r.postData() }));
+  page.on('request', (r) => seen.push({ method: r.method(), url: r.url() }));
   await openDocs(page);
   await upload(page, [SAMPLES.pdf, SAMPLES.csv]);
   await page.getByRole('button', { name: 'Upload 2 documents' }).click();
@@ -466,8 +375,9 @@ test('uploaded content never reaches the network: every request is a same-origin
   expect(seen.length).toBeGreaterThan(3);
   for (const r of seen) {
     if (/^(data|blob):/.test(r.url)) continue;
-    expect(r.method, r.url).toBe('GET');
     expect(new URL(r.url).origin, r.url).toBe(origin);
-    expect(r.body, r.url).toBeNull();
+    if (r.method !== 'GET') expect(new URL(r.url).pathname, r.url).toMatch(/^\/api\/charities\/your-place\/(documents|bids)(\/|$)|^\/api\/charities\/your-place\/(decisions|discovery-settings)/);
   }
+  // and the saved bytes are on the server
+  expect((await readStore(page, 'documents')).some((d) => d.filename === 'report.pdf')).toBe(true);
 });

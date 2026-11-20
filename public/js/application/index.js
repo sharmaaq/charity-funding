@@ -2,10 +2,8 @@
 // the review screen, and autosaves. app.js stays the router and shell and delegates #/planning/<grant>/application
 // routes here, the same way it delegates #/organisation routes to js/org/index.js.
 import { h, formatDateTime } from '../org/dom.js';
-import { mapError, openDb } from '../org/db.js';
-import { createRepository } from '../org/repository.js';
+import { mapError } from '../org/db.js';
 import { confirmDialog } from '../org/views/dialog.js';
-import { createApplicationRepository } from './repository.js';
 import { GRANT_ID, evaluate, fieldById, sectionOf, SECTIONS } from './schema.js';
 import { confirmAnswer, applySuggestion, editedAnswersThatWouldChange, isEdited, manualExcerptAnswer, mergeAnswers, setManagerAnswer } from './answers.js';
 import { buildSuggestions, diffSuggestions, documentRef, initialAnswers, refreshedRefs, staleMap } from './prefill.js';
@@ -37,14 +35,12 @@ export function stageOf(counts) {
 }
 
 // getGrant(id) -> { id, name, funder, workflow } | null   (provided by app.js; the controller never changes triage state)
-export function createApplication({ mount, titleEl, now, announce, navigate, getGrant }) {
+export function createApplication({ mount, titleEl, now, announce, navigate, getGrant, services, applicationDefaults = null }) {
   let token = 0;
   let sess = null;
   let view = null; // { kind: 'workspace' | 'review', ui? }
   let servicesPromise = null;
   const nowIso = () => now().toISOString();
-  const orgHooks = () => globalThis.__ORG_TEST_HOOKS__ || {};
-  const appHooks = () => globalThis.__APP_TEST_HOOKS__ || {};
 
   window.addEventListener('beforeunload', (ev) => {
     if (isDirty()) { ev.preventDefault(); ev.returnValue = ''; }
@@ -53,28 +49,10 @@ export function createApplication({ mount, titleEl, now, announce, navigate, get
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && isDirty()) flush(); });
 
   // ---------- storage ----------
-  // Opens the organisation database (upgrading schema 1 to 2 if needed) and seeds the organisation once, exactly as the
-  // organisation area does. Never deletes or recreates anything to recover from an error.
+  // The repositories are clients of the charity-scoped API, created by app.js for the current charity. Problems surface as
+  // typed errors from the first call; nothing is deleted or recreated to recover from one.
   function ensureServices() {
-    if (!servicesPromise) {
-      servicesPromise = (async () => {
-        let db;
-        try {
-          db = await openDb();
-        } catch (e) {
-          return { problem: mapError(e) };
-        }
-        try {
-          const org = createRepository(db, { now, hooks: orgHooks });
-          await org.seedOnce();
-          const apps = createApplicationRepository(db, { now, hooks: appHooks });
-          return { db, org, apps, problem: null };
-        } catch (e) {
-          db.close();
-          return { problem: mapError(e) };
-        }
-      })();
-    }
+    if (!servicesPromise) servicesPromise = Promise.resolve({ org: services.org, apps: services.apps, problem: null });
     return servicesPromise;
   }
 
@@ -282,7 +260,7 @@ export function createApplication({ mount, titleEl, now, announce, navigate, get
     async refresh(trigger) {
       await reloadSources(false);
       if (!sess.catalogue) { announce('Suggestions could not be refreshed because the organisation store could not be read.'); return; }
-      const suggestions = buildSuggestions(sess.catalogue.profile);
+      const suggestions = buildSuggestions(sess.catalogue.profile, applicationDefaults);
       const changes = diffSuggestions(sess.answers, suggestions);
       const chosen = await refreshDialog({ changes, trigger });
       if (!chosen.length) return;
@@ -401,7 +379,7 @@ export function createApplication({ mount, titleEl, now, announce, navigate, get
       if (mine !== token) return;
       if (!sess || sess.grantId !== route.grantId) {
         let app = await svc.apps.getByGrant(route.grantId);
-        if (!app) app = (await svc.apps.getOrCreate(route.grantId, initialAnswers(catalogue ? catalogue.profile : null, nowIso()))).application;
+        if (!app) app = (await svc.apps.getOrCreate(route.grantId, initialAnswers(catalogue ? catalogue.profile : null, nowIso(), applicationDefaults))).application;
         if (mine !== token) return;
         sess = {
           grantId: route.grantId, app, answers: app.answers, catalogue, catalogueProblem: problem, section: SECTIONS[0].id,

@@ -1,8 +1,8 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './base.js';
 
 const NOW = '2026-11-15T10:00:00Z';
 const SYNTH = 'Synthetic demo example — not a real submission or filing';
-const NOTICE = 'Files are stored in this browser only. Keep your originals. AI processing is not connected in this demo.';
+const NOTICE = 'Files are stored privately for this charity on the server and are only visible to its members. Keep your originals. AI processing is not connected in this demo.';
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript((now) => { window.__DEMO_NOW__ = now; }, NOW);
@@ -42,7 +42,7 @@ test('the wordmark is a link to Organisation information; Discovery stays the la
   await page.goto('/');
   await expect(page).toHaveURL(/#\/discovery\/new$/);
   await expect(page.locator('h1')).toHaveText('Discovery');
-  const brand = page.getByRole('link', { name: 'YOR Plc organisation information' });
+  const brand = page.getByRole('link', { name: 'Your Place organisation information' });
   await expect(brand).toHaveCount(1);
   await expect(brand).not.toHaveAttribute('aria-current', 'page');
   await brand.focus();
@@ -323,7 +323,7 @@ test('dirty-form guard: staying keeps input, leaving discards', async ({ page })
   await expect(page).toHaveURL(/#\/organisation\/bids\/new$/);
   await expect(page.getByLabel('Bid title')).toHaveValue('Unsaved bid');
   await expect(page.locator('h1')).toHaveText('Organisation information');
-  await page.getByRole('link', { name: 'YOR Plc organisation information' }).click();
+  await page.getByRole('link', { name: 'Your Place organisation information' }).click();
   await page.getByRole('button', { name: 'Leave and discard' }).click();
   await expect(page).toHaveURL(/#\/organisation$/);
   await expect(bidRows(page)).toHaveCount(3);

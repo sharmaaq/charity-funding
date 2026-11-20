@@ -1,8 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { FIXTURES } from '../../public/js/fixtures.js';
+import { FIXTURES } from '../../server/seed/your-place-grants.js';
 import {
-  STORAGE_KEY,
   ACTIONS,
   initialState,
   effectiveSuitability,
@@ -10,8 +9,8 @@ import {
   applyAction,
   setHideUnsuitable,
   selectView,
-  load,
-  save,
+  diffState,
+  stateFromWorkspace,
   applyDiscovery,
   discoveryCandidate,
   setBrief,
@@ -20,25 +19,6 @@ import {
 const grantOf = (id) => FIXTURES.find((g) => g.id === id);
 const act = (s, id, a) => applyAction(s, FIXTURES, id, a);
 const wf = (s, id) => s.grants[id].workflow;
-
-function memoryStorage(initial = {}) {
-  const data = { ...initial };
-  return {
-    data,
-    getItem: (k) => (k in data ? data[k] : null),
-    setItem: (k, v) => {
-      data[k] = String(v);
-    },
-  };
-}
-const throwingStorage = {
-  getItem() {
-    throw new Error('blocked');
-  },
-  setItem() {
-    throw new Error('blocked');
-  },
-};
 
 test('initial state: six in New, filter off, no overrides', () => {
   const s = initialState(FIXTURES);
@@ -199,38 +179,38 @@ test('filter: Passed and Planning are unfiltered; overridden grants stay visible
   assert.deepEqual(selectView(s, FIXTURES, 'watchlist'), { visible: [], hiddenCount: 0, total: 0 });
 });
 
-test('save then load round-trips', () => {
-  const st = memoryStorage();
+// ---------- saved workspace (server) <-> state ----------
+
+const workspaceOf = (s) => ({ opportunities: FIXTURES, grants: s.grants, hideUnsuitable: s.hideUnsuitable, ...('freshId' in s ? { freshId: s.freshId } : {}), ...('brief' in s ? { brief: s.brief } : {}) });
+
+test('a state survives the trip through a saved workspace', () => {
   let s = initialState(FIXTURES);
   s = act(act(s, 'G-004', 'markSuitable'), 'G-001', 'watch');
   s = setHideUnsuitable(s, true);
-  assert.equal(save(st, s), true);
-  assert.ok(STORAGE_KEY in st.data);
-  const r = load(st, FIXTURES);
-  assert.equal(r.storageAvailable, true);
-  assert.deepEqual(r.state, s);
+  s = setBrief(applyDiscovery(s, FIXTURES).state, 'first\nsecond');
+  assert.deepEqual(stateFromWorkspace(workspaceOf(s)), s);
 });
 
-test('missing, corrupt, wrong-version, incomplete data and throwing storage all give a usable state', () => {
+test('a workspace with no decisions starts every grant in New; unknown values fall back safely', () => {
   const init = initialState(FIXTURES);
-  assert.deepEqual(load(memoryStorage(), FIXTURES), { state: init, storageAvailable: true });
-  assert.deepEqual(load(memoryStorage({ [STORAGE_KEY]: '{not json' }), FIXTURES).state, init);
-  assert.deepEqual(load(memoryStorage({ [STORAGE_KEY]: 'null' }), FIXTURES).state, init);
-  const wrong = JSON.stringify({ ...act(init, 'G-001', 'pass'), version: 2 });
-  assert.deepEqual(load(memoryStorage({ [STORAGE_KEY]: wrong }), FIXTURES).state, init);
-  const missing = act(init, 'G-001', 'pass');
-  delete missing.grants['G-006'];
-  assert.deepEqual(load(memoryStorage({ [STORAGE_KEY]: JSON.stringify(missing) }), FIXTURES).state, init);
-  const badWf = JSON.parse(JSON.stringify(init));
-  badWf.grants['G-001'].workflow = 'bogus';
-  assert.deepEqual(load(memoryStorage({ [STORAGE_KEY]: JSON.stringify(badWf) }), FIXTURES).state, init);
+  assert.deepEqual(stateFromWorkspace({ opportunities: FIXTURES, grants: {}, hideUnsuitable: false }), init);
+  const odd = stateFromWorkspace({ opportunities: FIXTURES, grants: { 'G-001': { workflow: 'bogus', override: 'yes' } }, hideUnsuitable: 'x', freshId: 'G-999', brief: 42 });
+  assert.deepEqual(odd, init);
+  assert.equal(stateFromWorkspace({ opportunities: [], grants: {} }).hideUnsuitable, false);
+});
 
-  const r = load(throwingStorage, FIXTURES);
-  assert.equal(r.storageAvailable, false);
-  assert.deepEqual(r.state, init);
-  assert.equal(save(throwingStorage, init), false);
-  assert.equal(load(null, FIXTURES).storageAvailable, false);
-  assert.equal(save(null, init), false);
+test('diffState lists one decision per changed grant and one settings patch', () => {
+  const init = initialState(FIXTURES);
+  assert.deepEqual(diffState(init, init), []);
+  const s = act(act(init, 'G-001', 'watch'), 'G-004', 'markSuitable');
+  assert.deepEqual(diffState(init, s).map((o) => [o.type, o.id, o.value]), [
+    ['decision', 'G-001', { workflow: 'watchlist', override: false }],
+    ['decision', 'G-004', { workflow: 'new', override: true }],
+  ]);
+  const t = setBrief(setHideUnsuitable(applyDiscovery(init, FIXTURES).state, true), 'x');
+  assert.deepEqual(diffState(init, t), [{ type: 'settings', patch: { hideUnsuitable: true, brief: 'x', freshId: 'G-001' } }]);
+  // acting on the fresh grant clears the marker on the server too
+  assert.deepEqual(diffState(t, act(t, 'G-001', 'watch')).find((o) => o.type === 'settings').patch, { freshId: null });
 });
 
 // ---------- Sprint 1: discovery freshness and the saved brief ----------
@@ -289,43 +269,4 @@ test('setBrief stores text, keeps line breaks and empty strings, and returns the
   assert.equal(setBrief(a, 'line one\nline two'), a);
   assert.equal(setBrief(s, '').brief, '');
   assert.equal('brief' in s, false);
-});
-
-test('brief and freshId round-trip through storage, including empty and multi-line briefs', () => {
-  for (const brief of ['', 'first\nsecond\n\nthird  ', '<b>not html</b> & "quotes"']) {
-    const storage = memoryStorage();
-    let s = setBrief(applyDiscovery(initialState(FIXTURES), FIXTURES).state, brief);
-    assert.equal(save(storage, s), true);
-    const loaded = load(storage, FIXTURES).state;
-    assert.equal(loaded.brief, brief);
-    assert.equal(loaded.freshId, 'G-001');
-  }
-});
-
-test('saved v1 data without the new fields loads with decisions, overrides and filter intact', () => {
-  let s = initialState(FIXTURES);
-  s = act(act(act(setHideUnsuitable(s, true), 'G-004', 'markSuitable'), 'G-004', 'watch'), 'G-001', 'pass');
-  const old = JSON.parse(JSON.stringify(s));
-  assert.equal('brief' in old, false);
-  const storage = memoryStorage({ [STORAGE_KEY]: JSON.stringify(old) });
-  const { state } = load(storage, FIXTURES);
-  assert.equal(state.hideUnsuitable, true);
-  assert.deepEqual(state.grants, s.grants);
-  assert.equal(state.version, 1);
-  assert.equal('brief' in state, false);
-  assert.equal('freshId' in state, false);
-});
-
-test('an unknown or malformed freshId is dropped without resetting anything', () => {
-  const s = act(setHideUnsuitable(initialState(FIXTURES), true), 'G-002', 'watch');
-  for (const bad of ['G-999', 7, null, {}]) {
-    const storage = memoryStorage({ [STORAGE_KEY]: JSON.stringify({ ...s, freshId: bad, brief: 'kept' }) });
-    const { state } = load(storage, FIXTURES);
-    assert.equal('freshId' in state, false);
-    assert.equal(state.brief, 'kept');
-    assert.equal(state.hideUnsuitable, true);
-    assert.equal(state.grants['G-002'].workflow, 'watchlist');
-  }
-  const nonString = memoryStorage({ [STORAGE_KEY]: JSON.stringify({ ...s, brief: 42 }) });
-  assert.equal('brief' in load(nonString, FIXTURES).state, false);
 });

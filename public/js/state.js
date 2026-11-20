@@ -1,6 +1,5 @@
 // Pure state logic: no DOM access. Imported by the browser app and the Node unit tests.
 
-export const STORAGE_KEY = 'charity-funding.demo.v1';
 export const VERSION = 1;
 export const WORKFLOWS = ['new', 'watchlist', 'passed', 'planning'];
 export const ACTIONS = ['watch', 'plan', 'pass', 'restore', 'markSuitable', 'abandon'];
@@ -83,52 +82,31 @@ export function selectView(state, fixtures, view) {
   return { visible, hiddenCount: inView.length - visible.length, total: inView.length };
 }
 
-function validState(data, fixtures) {
-  if (!data || typeof data !== 'object' || data.version !== VERSION) return false;
-  if (typeof data.hideUnsuitable !== 'boolean') return false;
-  if (!data.grants || typeof data.grants !== 'object') return false;
-  for (const g of fixtures) {
-    const e = data.grants[g.id];
-    if (!e || typeof e !== 'object') return false;
-    if (!WORKFLOWS.includes(e.workflow) || typeof e.override !== 'boolean') return false;
+// The saved workspace (what GET /api/charities/{cid}/workspace returns) as the state object the screens use.
+export function stateFromWorkspace(ws) {
+  const grants = {};
+  for (const o of ws.opportunities || []) {
+    const e = (ws.grants || {})[o.id] || {};
+    grants[o.id] = { workflow: WORKFLOWS.includes(e.workflow) ? e.workflow : 'new', override: e.override === true };
   }
-  return true;
+  const state = { version: VERSION, hideUnsuitable: ws.hideUnsuitable === true, grants };
+  if (typeof ws.freshId === 'string' && grants[ws.freshId]) state.freshId = ws.freshId;
+  if (typeof ws.brief === 'string') state.brief = ws.brief;
+  return state;
 }
 
-export function load(storage, fixtures) {
-  let raw;
-  try {
-    if (!storage) return { state: initialState(fixtures), storageAvailable: false };
-    raw = storage.getItem(STORAGE_KEY);
-  } catch {
-    return { state: initialState(fixtures), storageAvailable: false };
+// The writes needed to turn `prev` into `next`: one decision per changed grant (separate records, so two people
+// deciding on different grants never overwrite each other) and one settings patch for brief, filter and fresh marker.
+export function diffState(prev, next) {
+  const ops = [];
+  for (const [id, e] of Object.entries(next.grants)) {
+    const p = prev.grants[id];
+    if (!p || p.workflow !== e.workflow || p.override !== e.override) ops.push({ type: 'decision', id, value: { workflow: e.workflow, override: e.override } });
   }
-  if (raw === null || raw === undefined) return { state: initialState(fixtures), storageAvailable: true };
-  try {
-    const data = JSON.parse(raw);
-    if (validState(data, fixtures)) {
-      // Keep only known grants: exactly one entry per fixture ID.
-      const grants = {};
-      for (const g of fixtures) {
-        grants[g.id] = { workflow: data.grants[g.id].workflow, override: data.grants[g.id].override };
-      }
-      const next = { version: VERSION, hideUnsuitable: data.hideUnsuitable, grants };
-      if (typeof data.freshId === 'string' && grants[data.freshId]) next.freshId = data.freshId;
-      if (typeof data.brief === 'string') next.brief = data.brief;
-      return { state: next, storageAvailable: true };
-    }
-  } catch {
-    // fall through: unreadable data is discarded
-  }
-  return { state: initialState(fixtures), storageAvailable: true };
-}
-
-export function save(storage, state) {
-  try {
-    if (!storage) return false;
-    storage.setItem(STORAGE_KEY, JSON.stringify(state));
-    return true;
-  } catch {
-    return false;
-  }
+  const patch = {};
+  if (prev.hideUnsuitable !== next.hideUnsuitable) patch.hideUnsuitable = next.hideUnsuitable;
+  if ((prev.brief ?? null) !== (next.brief ?? null) && typeof next.brief === 'string') patch.brief = next.brief;
+  if ((prev.freshId ?? null) !== (next.freshId ?? null)) patch.freshId = next.freshId ?? null;
+  if (Object.keys(patch).length) ops.push({ type: 'settings', patch });
+  return ops;
 }

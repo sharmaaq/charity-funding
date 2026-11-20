@@ -25,7 +25,7 @@ export async function buildAccountsExample() {
   page.drawText(SYNTHETIC_LABEL, { x: 70, y: 250, size: 22, font: bold, color: rgb(0.78, 0.78, 0.8), rotate: degrees(40), maxWidth: 700, lineHeight: 28 });
   text(SYNTHETIC_LABEL, 56, 800, 11, bold, rgb(0.55, 0.1, 0.1));
 
-  text('YOR Plc', 56, 750, 22, bold);
+  text('Your Place', 56, 750, 22, bold);
   text('Illustrative statement of income', 56, 722, 15, bold);
   text('For the year ended 31 March 2026', 56, 702);
   text('Document kind: synthetic accounts example', 56, 668, 11);
@@ -43,7 +43,7 @@ export async function buildAccountsExample() {
   text('Page 1 of 1', 480, 70, 9);
 
   doc.setTitle(ACCOUNTS_EXAMPLE_TITLE);
-  doc.setAuthor('YOR Plc demonstration');
+  doc.setAuthor('Your Place demonstration');
   doc.setSubject(SYNTHETIC_LABEL);
   doc.setKeywords([`documentKind=${ACCOUNTS_EXAMPLE_KIND}`, `independentExamination=${ACCOUNTS_EXAMPLE_EXAMINATION}`]);
   doc.setProducer('charity-funding demo (pdf-lib)');

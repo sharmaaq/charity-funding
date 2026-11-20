@@ -1,5 +1,4 @@
-import { FIXTURES } from './fixtures.js';
-import { DEFAULT_BRIEF, runMockDiscovery } from './discovery.js';
+import { runMockDiscovery } from './discovery.js';
 import { isTimingPreview, withPreviewTiming } from './preview.js';
 import { nextChangeAt, timingMarkers } from './timing.js';
 import { createOrganisation, isOrgHash, parseOrgHash } from './org/index.js';
@@ -9,12 +8,16 @@ import {
   setBrief,
   availableActions,
   applyAction,
+  diffState,
   effectiveSuitability,
-  load,
-  save,
   selectView,
   setHideUnsuitable,
+  stateFromWorkspace,
 } from './state.js';
+import { api } from './remote/http.js';
+import { SIGN_OUT_HREF, cleanOldBrowserData, pickCharity, readLastCharity, splitWordmark, writeLastCharity } from './remote/session.js';
+import { createRepository as createOrgRepository } from './org/repository.js';
+import { createApplicationRepository } from './application/repository.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -33,10 +36,6 @@ function getStorage() {
 }
 
 const storage = getStorage();
-const loaded = load(storage, FIXTURES);
-let state = loaded.state;
-let storageOk = loaded.storageAvailable;
-
 const mainEl = document.getElementById('main');
 const navEl = document.getElementById('main-nav');
 const liveEl = document.getElementById('live');
@@ -48,6 +47,81 @@ const briefErrorEl = document.getElementById('brief-error');
 const discoverBtn = document.getElementById('discover-btn');
 const aiStatusEl = document.getElementById('ai-status');
 const brandLink = document.getElementById('brand-link');
+
+// ---------- sign-in, charity and saved data ----------
+const accountEl = document.getElementById('account');
+const stripTitleEl = document.getElementById('strip-title');
+const stripTextEl = document.getElementById('strip-text');
+
+// Old browser-only storage is deleted, never migrated: the server holds all data now.
+cleanOldBrowserData(storage);
+
+function fatal(message) {
+  mainEl.replaceChildren(h('p', { class: 'form-error', role: 'alert', 'data-testid': 'load-error', text: message }));
+}
+
+let me;
+try {
+  me = await api('/api/me');
+} catch (e) {
+  fatal(`The service could not be reached: ${e.message} Reload the page to try again.`);
+  await new Promise(() => {}); // nothing else can run without a signed-in identity
+}
+
+const charity = pickCharity(me.charities, readLastCharity(storage));
+renderAccount();
+if (!charity) {
+  fatal(me.isAdmin ? 'No charities have been created yet.' : `Your Google account (${me.email}) is not set up for any charity. Ask your administrator to add you.`);
+  await new Promise(() => {});
+}
+writeLastCharity(storage, charity.id);
+applyBranding();
+
+const CID = charity.id;
+let workspace;
+try {
+  workspace = await api(`/api/charities/${encodeURIComponent(CID)}/workspace`);
+} catch (e) {
+  fatal(`${charity.name} could not be loaded: ${e.message} Reload the page to try again.`);
+  await new Promise(() => {});
+}
+// The grant cards of this charity. Everything else in the page reads this list.
+const OPPS = workspace.opportunities;
+const services = {
+  org: createOrgRepository({ cid: CID, now: () => now() }),
+  apps: createApplicationRepository({ cid: CID, userEmail: me.email }),
+};
+let state = stateFromWorkspace(workspace);
+let storageOk = true;
+const APPLICATION_DEFAULTS = workspace.applicationDefaults || null;
+
+function applyBranding() {
+  document.title = `${charity.name} - Grant discovery (demo)`;
+  const wm = splitWordmark(charity.name);
+  document.getElementById('wm-a').textContent = wm.a;
+  document.getElementById('wm-b').textContent = wm.b;
+  brandLink.setAttribute('aria-label', `${charity.name} organisation information`);
+  const notice = charity.notice || {};
+  stripTitleEl.textContent = notice.title || '';
+  stripTextEl.textContent = notice.text || '';
+}
+
+function renderAccount() {
+  const parts = [];
+  if (me.charities.length > 1) {
+    const select = h('select', { id: 'charity-switch', 'data-testid': 'charity-switch' },
+      [...me.charities].sort((x, y) => x.name.localeCompare(y.name, 'en-GB')).map((c) => h('option', { value: c.id, selected: charity && c.id === charity.id ? true : null }, c.name)));
+    select.addEventListener('change', () => {
+      writeLastCharity(storage, select.value);
+      history.replaceState(null, '', location.pathname);
+      location.reload(); // loads the other charity's data and look together
+    });
+    parts.push(h('label', { class: 'sr-only', for: 'charity-switch', text: 'Charity' }), select);
+  }
+  parts.push(h('span', { class: 'who', 'data-testid': 'signed-in-as', text: `Signed in as ${me.email}` }), h('a', { href: SIGN_OUT_HREF, 'data-testid': 'sign-out' }, 'Sign out'));
+  accountEl.replaceChildren(...parts);
+  accountEl.hidden = false;
+}
 
 let keepMessage = false;
 let pendingMessage = null;
@@ -155,12 +229,34 @@ function svgIcon(kind) {
 }
 
 // ---------- persistence ----------
+// The screen updates at once; each change is then written to the server in order. A failed write shows the notice, and the
+// next change tries again. html[data-pending] counts writes still on their way (the tests wait for it to reach 0).
+let saveChain = Promise.resolve();
+let pendingSaves = 0;
+function sendOp(op) {
+  const base = `/api/charities/${encodeURIComponent(CID)}`;
+  if (op.type === 'decision') return api(`${base}/decisions/${encodeURIComponent(op.id)}`, { method: 'PUT', json: op.value, keepalive: true });
+  return api(`${base}/discovery-settings`, { method: 'PUT', json: op.patch, keepalive: true });
+}
 function commit(next) {
   if (next === state) return false;
+  const ops = diffState(state, next);
   state = next;
-  if (storageOk && !save(storage, state)) storageOk = false;
+  for (const op of ops) {
+    pendingSaves += 1;
+    document.documentElement.dataset.pending = String(pendingSaves);
+    saveChain = saveChain.then(() => sendOp(op)).then(
+      () => { storageOk = true; },
+      () => { storageOk = false; },
+    ).then(() => {
+      pendingSaves -= 1;
+      document.documentElement.dataset.pending = String(pendingSaves);
+      updateNotice();
+    });
+  }
   return true;
 }
+document.documentElement.dataset.pending = '0';
 
 function updateNotice() {
   noticeEl.hidden = storageOk;
@@ -173,7 +269,7 @@ function announce(text, hash, linkText) {
 }
 
 function grantById(id) {
-  return FIXTURES.find((g) => g.id === id);
+  return OPPS.find((g) => g.id === id);
 }
 
 function doAction(grantId, action) {
@@ -182,7 +278,7 @@ function doAction(grantId, action) {
     announce(`${grant.name} cannot be abandoned while its demo run is in progress. Wait for the run to finish.`);
     return;
   }
-  const next = applyAction(state, FIXTURES, grantId, action);
+  const next = applyAction(state, OPPS, grantId, action);
   if (!commit(next)) return;
   let message;
   if (action === 'markSuitable') {
@@ -269,7 +365,7 @@ function grantItem(grant, entry, actionNames, showMarkers = false, extra = null)
       h('div', null,
         h('p', null, h('strong', null, 'Original assessment: '), grant.assessment === 'suitable' ? 'Suitable' : 'Unsuitable'),
         h('p', { class: 'original-reason' }, h('strong', null, 'Original reason: '), grant.reason),
-        eff === 'override' ? h('p', null, 'The manager override reflects a decision in this browser, not a change to the funder\'s rules.') : null,
+        eff === 'override' ? h('p', null, 'The manager override reflects a decision made in this workspace, not a change to the funder\'s rules.') : null,
         h('p', null, h('strong', null, 'Source evidence:')),
         h('ul', null, grant.sources.map((s) => h('li', null, h('a', { href: s.url, target: '_blank', rel: 'noopener noreferrer' }, s.label)))),
       ),
@@ -288,8 +384,8 @@ function grantList(grants, actionsFor, showMarkers = false, extra = null) {
 
 function renderDiscovery(view) {
   const counts = {};
-  for (const v of ['new', 'watchlist', 'passed']) counts[v] = selectView(state, FIXTURES, v).total;
-  const sel = selectView(state, FIXTURES, view);
+  for (const v of ['new', 'watchlist', 'passed']) counts[v] = selectView(state, OPPS, v).total;
+  const sel = selectView(state, OPPS, view);
   const filterable = view === 'new' || view === 'watchlist';
 
   const tabs = h('ul', { class: 'tabs', 'aria-label': 'Discovery views' },
@@ -354,7 +450,7 @@ function templateSection(title, text) {
 }
 
 function renderPlanning() {
-  const sel = selectView(state, FIXTURES, 'planning');
+  const sel = selectView(state, OPPS, 'planning');
   const parts = [
     placeholderNotice(),
     h('p', null, 'Grants you chose to plan an application for in Discovery appear here. Nothing on this page is submitted anywhere.'),
@@ -411,6 +507,7 @@ function fallbackHash(hash) {
 
 // The organisation area (#/organisation...) lives in js/org/ and renders itself into <main>.
 const organisation = createOrganisation({
+  services,
   mount: mainEl,
   titleEl,
   now,
@@ -424,6 +521,8 @@ const organisation = createOrganisation({
 
 // The application workspace (#/planning/<grant>/application...) lives in js/application/ and renders itself into <main>.
 const application = createApplication({
+  services,
+  applicationDefaults: APPLICATION_DEFAULTS,
   mount: mainEl,
   titleEl,
   now,
@@ -504,13 +603,13 @@ const SAVE_DELAY_MS = 400;
 let saveTimer = null;
 let busy = false;
 
-briefEl.value = typeof state.brief === 'string' ? state.brief : DEFAULT_BRIEF;
+briefEl.value = typeof state.brief === 'string' ? state.brief : '';
 
 function saveBrief() {
   clearTimeout(saveTimer);
   saveTimer = null;
   const text = briefEl.value;
-  if (text === (typeof state.brief === 'string' ? state.brief : DEFAULT_BRIEF)) return;
+  if (text === (typeof state.brief === 'string' ? state.brief : '')) return;
   commit(setBrief(state, text));
   updateNotice();
 }
@@ -582,7 +681,7 @@ async function onDiscover() {
     discoverBtn.focus();
     return;
   }
-  const result = applyDiscovery(state, FIXTURES);
+  const result = applyDiscovery(state, OPPS);
   if (result.grantId === null) {
     announce('No demo grant available to rediscover. Restore a suitable grant to New to repeat the demo.');
     discoverBtn.focus();
@@ -601,7 +700,7 @@ function scheduleTick() {
   tickTimer = null;
   if (injectedNow) return; // a fixed test clock never advances
   const t = now();
-  const delay = Math.min(Math.max(nextChangeAt(FIXTURES, t).getTime() - t.getTime() + 250, 1000), 2 ** 31 - 1);
+  const delay = Math.min(Math.max(nextChangeAt(OPPS, t).getTime() - t.getTime() + 250, 1000), 2 ** 31 - 1);
   tickTimer = setTimeout(() => render({ focus: false }), delay);
 }
 

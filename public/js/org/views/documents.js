@@ -74,7 +74,7 @@ export function documentsPanel(ctx, docs, usage) {
       h('div', { class: 'tools' }, search),
       h('p', { class: 'field-hint', id: 'doc-search-hint', text: 'Search covers titles, filenames, descriptions and tags only. It does not search inside the files.' }),
       list, empty, count,
-      h('p', { class: 'sub', text: `Stored in this browser: ${formatBytes(usage.totalBytes)} of ${formatBytes(usage.maxTotalBytes)} · ${usage.fileCount} ${usage.fileCount === 1 ? 'file' : 'files'} including bid attachments.` }));
+      h('p', { class: 'sub', text: `Stored for this charity: ${formatBytes(usage.totalBytes)} of ${formatBytes(usage.maxTotalBytes)} · ${usage.fileCount} ${usage.fileCount === 1 ? 'file' : 'files'} including bid attachments.` }));
     update();
   }
 
@@ -230,7 +230,7 @@ export function documentsPanel(ctx, docs, usage) {
   async function remove(d, trigger) {
     const ok = await ctx.confirm({
       title: 'Delete this document?',
-      message: `Delete "${d.filename}"? The stored file and its details are removed from this browser. This cannot be undone.`,
+      message: `Delete "${d.filename}"? The stored file and its details are removed for everyone in this charity. This cannot be undone.`,
       confirmLabel: 'Delete document',
       returnFocus: trigger,
     });

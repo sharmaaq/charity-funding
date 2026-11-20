@@ -1,28 +1,11 @@
-import { test, expect } from '@playwright/test';
-import { readStore, readyReview } from './package-helpers.js';
+import { test, expect } from './base.js';
+import { createHash } from 'node:crypto';
+import { readStore, readyReview, saveFromOtherTab, fillStorage } from './package-helpers.js';
 
 const tick = async (page) => {
   await page.getByLabel('I have reviewed these demo answers and documents').check();
   await page.getByLabel('Run the demo transfer using this package').check();
 };
-
-test('schema stays at version 2 and Phase A stores and indexes are unchanged', async ({ page }) => {
-  await readyReview(page);
-  const info = await page.evaluate(() => new Promise((resolve) => {
-    const r = indexedDB.open('charity-funding.organisation');
-    r.onsuccess = () => {
-      const db = r.result;
-      const out = { version: db.version, stores: [...db.objectStoreNames].sort(), idx: {} };
-      for (const n of ['applications', 'submissionSnapshots', 'submissionFiles', 'submissionAttempts', 'submissionReceipts']) out.idx[n] = [...db.transaction(n).objectStore(n).indexNames].sort();
-      db.close(); resolve(out);
-    };
-  }));
-  expect(info.version).toBe(2);
-  expect(info.stores).toEqual(['applications', 'bids', 'documents', 'files', 'meta', 'submissionAttempts', 'submissionFiles', 'submissionReceipts', 'submissionSnapshots']);
-  expect(info.idx.applications).toEqual(['grantId']);
-  expect(info.idx.submissionSnapshots).toEqual(['applicationId']);
-  expect(info.idx.submissionFiles).toEqual(['snapshotId']);
-});
 
 test('attachment bytes are identical after copying into the snapshot and after a reload (SHA-256)', async ({ page }) => {
   await readyReview(page);
@@ -31,32 +14,25 @@ test('attachment bytes are identical after copying into the snapshot and after a
   const shownProposal = await page.getByTestId('hash-proposal').innerText();
   const shownAccounts = await page.getByTestId('hash-accounts').innerText();
   await page.reload();
-  const res = await page.evaluate(async () => {
-    const { openDb } = await import('/js/org/db.js');
-    const { createRepository } = await import('/js/org/repository.js');
-    const { createApplicationRepository } = await import('/js/application/repository.js');
-    const { verifySnapshot, sha256Hex } = await import('/js/application/package.js');
-    const db = await openDb();
-    const org = createRepository(db, {});
-    const apps = createApplicationRepository(db, {});
-    const app = await apps.getByGrant('G-001');
-    const snap = await apps.getSnapshot(app.lastSnapshotId);
-    const files = await apps.getSnapshotFiles(snap.id);
-    const hashes = [];
-    for (const f of files) hashes.push(await sha256Hex(new Uint8Array(await f.blob.arrayBuffer())));
-    const original = await sha256Hex(new Uint8Array(await (await org.getBlob(snap.attachments[1].sourceId)).arrayBuffer()));
-    const verify = await verifySnapshot(apps, snap.id);
-    db.close();
-    return { hashes, original, recorded: snap.attachments.map((a) => a.sha256), verify: verify.ok };
-  });
-  expect(res.hashes).toEqual(res.recorded);
-  expect(res.hashes).toEqual([shownProposal, shownAccounts]);
-  expect(res.hashes[1]).toBe(res.original);
-  expect(res.verify).toBe(true);
+  // Everything below comes from the server's copies, hashed here in Node, independent of the app's code.
+  const sha = async (url) => createHash('sha256').update(await (await page.request.get(url)).body()).digest('hex');
+  const app = (await (await page.request.get('/api/charities/your-place/applications/by-grant/G-001')).json()).application;
+  const snap = (await (await page.request.get(`/api/charities/your-place/snapshots/${app.lastSnapshotId}`)).json()).snapshot;
+  const files = await (await page.request.get(`/api/charities/your-place/snapshots/${snap.id}/files`)).json();
+  const hashes = [];
+  for (const f of files) hashes.push(await sha(`/api/charities/your-place/snapshots/${snap.id}/files/${f.id}`));
+  const original = await sha(`/api/charities/your-place/documents/${snap.attachments[1].sourceId}/file`);
+  expect(hashes).toEqual(snap.attachments.map((a) => a.sha256));
+  expect(hashes).toEqual([shownProposal, shownAccounts]);
+  expect(hashes[1]).toBe(original);
 });
 
-test('a quota failure while freezing keeps the draft, shows an actionable error and never says saved; retry works', async ({ page }) => {
-  await page.addInitScript(() => { globalThis.__APP_TEST_HOOKS__ = { abortNext: 'freezeSnapshot', code: 'quota' }; });
+test('a failed save while freezing keeps the draft, shows an actionable error and never says saved; retry works', async ({ page }) => {
+  let refuse = true;
+  await page.route('**/applications/*/snapshots', (route) => {
+    if (refuse && route.request().method() === 'POST') { refuse = false; return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ code: 'quota' }) }); }
+    return route.continue();
+  });
   await readyReview(page);
   await tick(page);
   await expect(page.getByTestId('package-status')).toContainText('The package was not saved');
@@ -73,15 +49,13 @@ test('a quota failure while freezing keeps the draft, shows an actionable error 
 
 test('stale source: if the accounts document changes after the review was prepared, the commit aborts and nothing is stored', async ({ page }) => {
   await readyReview(page);
-  await page.evaluate(async () => {
-    const { openDb } = await import('/js/org/db.js');
-    const { createRepository } = await import('/js/org/repository.js');
-    const db = await openDb();
-    const repo = createRepository(db, {});
-    const d = (await repo.listDocuments()).find((x) => x.filename === 'synthetic-accounts-example.pdf');
-    await repo.updateDocument(d.id, { title: `${d.title} edited`, category: d.category, description: d.description, period: d.period, tags: d.tags, documentDate: d.documentDate });
-    db.close();
+  const docs = await (await page.request.get('/api/charities/your-place/documents')).json();
+  const d = docs.find((x) => x.filename === 'synthetic-accounts-example.pdf');
+  const res = await page.request.put(`/api/charities/your-place/documents/${d.id}`, {
+    headers: { Origin: new URL(page.url()).origin },
+    data: { title: `${d.title} edited`, category: d.category, description: d.description, period: d.period, tags: d.tags, documentDate: d.documentDate },
   });
+  expect(res.ok()).toBe(true);
   await tick(page);
   await expect(page.getByTestId('package-status')).toContainText('changed while it was being prepared');
   expect(await readStore(page, 'submissionSnapshots')).toHaveLength(0);
@@ -89,16 +63,7 @@ test('stale source: if the accounts document changes after the review was prepar
 
 test('stale draft: a revision change from another tab aborts the commit', async ({ page }) => {
   await readyReview(page);
-  await page.evaluate(() => new Promise((resolve) => {
-    const r = indexedDB.open('charity-funding.organisation');
-    r.onsuccess = () => {
-      const db = r.result;
-      const tx = db.transaction('applications', 'readwrite');
-      const st = tx.objectStore('applications');
-      st.getAll().onsuccess = (e) => { const a = e.target.result[0]; a.draftRevision += 1; st.put(a); };
-      tx.oncomplete = () => { db.close(); resolve(); };
-    };
-  }));
+  await saveFromOtherTab(page, 'org.companyNumber', 'FROM-OTHER-TAB');
   await tick(page);
   await expect(page.getByTestId('package-status')).toContainText('changed in another tab');
   expect(await readStore(page, 'submissionSnapshots')).toHaveLength(0);
@@ -146,23 +111,9 @@ test('manager-supplied proposal PDF: a renamed text file, an empty file and an 1
 });
 
 test('capacity: copies count against the 100 MB budget; nothing is stored when they do not fit', async ({ page }) => {
-  test.setTimeout(120000);
+  test.setTimeout(180000);
   await readyReview(page);
-  const left = await page.evaluate(async () => {
-    const { openDb } = await import('/js/org/db.js');
-    const { createRepository } = await import('/js/org/repository.js');
-    const db = await openDb();
-    const repo = createRepository(db, {});
-    const MIB = 1024 * 1024;
-    let u = await repo.usage();
-    const text = (n) => new File([new Uint8Array(n).fill(65)], `filler-${n}-${Math.random().toString(36).slice(2)}.txt`, { type: 'text/plain' });
-    while (repo.limits.maxTotalBytes - u.totalBytes > 10 * MIB + 5000) { await repo.uploadDocument(text(10 * MIB), { title: 'filler' }); u = await repo.usage(); }
-    await repo.uploadDocument(text(repo.limits.maxTotalBytes - u.totalBytes - 2000), { title: 'filler last' });
-    u = await repo.usage();
-    db.close();
-    return repo.limits.maxTotalBytes - u.totalBytes;
-  });
-  expect(left).toBe(2000);
+  await fillStorage(page, 2000);
   await page.reload();
   await expect(page.getByTestId('package-hash')).toHaveText(/^[0-9a-f]{64}$/);
   await tick(page);

@@ -1,6 +1,6 @@
 // S3-001 Phase C, all three viewports: the worked example through a REAL demo run (server, test portal, Chromium)
 // to a DEMO receipt in Tracking. Synthetic data only; nothing leaves this origin.
-import { test, expect } from '@playwright/test';
+import { test, expect } from './base.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readStore, readyReview, confirmBoth } from './package-helpers.js';

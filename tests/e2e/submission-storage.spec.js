@@ -1,7 +1,7 @@
 // S3-001 Phase C, desktop only: concurrency, interruption, persistence failure, retries and revised drafts.
-// Where a fault is needed it is injected at the network boundary (page.route) or through the repository's test hook;
+// Where a fault is needed it is injected at the network boundary (page.route);
 // the app code paths are the real ones.
-import { test, expect } from '@playwright/test';
+import { test, expect } from './base.js';
 import { readStore, readyReview, gotoSection, confirmBoth } from './package-helpers.js';
 
 const RUNS = '**/api/submission-demo-runs';
@@ -85,13 +85,13 @@ test('double click and a second tab give one attempt; the second tab sees the ru
   await expect(other.getByTestId('run-elsewhere')).toContainText('in progress in another tab');
   await expect(other.getByTestId('run-demo')).toBeDisabled();
   // and even if a stale screen tried, the transactional attempt lock refuses a second running attempt
-  const refused = await other.evaluate(async () => {
-    const { openDb } = await import('/js/org/db.js');
-    const { createApplicationRepository } = await import('/js/application/repository.js');
-    const apps = createApplicationRepository(await openDb());
-    const [snap] = await new Promise((res) => { const r = indexedDB.open('charity-funding.organisation'); r.onsuccess = () => { const q = r.result.transaction('submissionSnapshots').objectStore('submissionSnapshots').getAll(); q.onsuccess = () => res(q.result); }; });
-    try { await apps.acquireAttempt({ applicationId: snap.applicationId, snapshotId: snap.id, payloadHash: snap.payloadHash }); return 'acquired'; } catch (e) { return e.code; }
+  const [snap] = await readStore(page, 'submissionSnapshots');
+  const res = await other.request.post('/api/charities/your-place/attempts/acquire', {
+    headers: { Origin: new URL(other.url()).origin },
+    data: { applicationId: snap.applicationId, snapshotId: snap.id, payloadHash: snap.payloadHash, retryId: null },
   });
+  expect(res.status()).toBe(409);
+  const refused = (await res.json()).code.toLowerCase().replace(/_/g, '-');
   expect(refused).toBe('attempt-active');
   expect(await readStore(page, 'submissionAttempts')).toHaveLength(1);
 
@@ -138,10 +138,14 @@ test('receipt save failure: the result stays visible, can be downloaded, and Ret
   await confirmBoth(page);
   let calls = 0;
   page.on('request', (r) => { if (r.url().endsWith('/api/submission-demo-runs')) calls += 1; });
-  await page.evaluate(() => { globalThis.__APP_TEST_HOOKS__ = { abortNext: 'finishAttempt' }; });
+  let refuse = true;
+  await page.route('**/attempts/finish', (route) => {
+    if (refuse) { refuse = false; return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ code: 'aborted' }) }); }
+    return route.continue();
+  });
   await page.getByTestId('run-demo').click();
   await expect(page.getByTestId('receipt-not-saved')).toBeVisible({ timeout: 90000 });
-  await expect(page.getByTestId('receipt-not-saved')).toContainText('Demo completed; receipt not saved in this browser');
+  await expect(page.getByTestId('receipt-not-saved')).toContainText('Demo completed; receipt not saved');
   await expect(page.getByTestId('run-complete')).toBeVisible();
   expect(await readStore(page, 'submissionReceipts')).toHaveLength(0);
   const [dl] = await Promise.all([page.waitForEvent('download'), page.getByTestId('download-receipt').click()]);

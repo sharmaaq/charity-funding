@@ -91,7 +91,7 @@ try {
       if (label === 'sprint1') {
         fullPage = true;
         if (scene === 'brief-edited-busy') {
-          await page.locator('#brief').fill('Find grants for YOR Plc.\nFocus on London homelessness housing and support, capital and core costs.');
+          await page.locator('#brief').fill('Find grants for Your Place.\nFocus on London homelessness housing and support, capital and core costs.');
           await page.getByRole('button', { name: 'Discover with AI' }).click();
           await page.waitForSelector('#ai-status span.spinner');
         } else if (scene === 'discovery-complete') {

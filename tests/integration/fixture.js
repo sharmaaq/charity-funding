@@ -19,7 +19,7 @@ export async function examplePackage() {
   const proposal = (await buildProposal(answers)).bytes;
   const accountsBuilt = await buildAccountsExample();
   const accounts = accountsBuilt.bytes || accountsBuilt;
-  const files = { proposal: { filename: 'yor-plc-proposal.pdf', mimeType: 'application/pdf', bytes: proposal }, accounts: { filename: ACCOUNTS_EXAMPLE_FILENAME, mimeType: 'application/pdf', bytes: accounts } };
+  const files = { proposal: { filename: 'your-place-proposal.pdf', mimeType: 'application/pdf', bytes: proposal }, accounts: { filename: ACCOUNTS_EXAMPLE_FILENAME, mimeType: 'application/pdf', bytes: accounts } };
   const attachments = [];
   for (const role of ['proposal', 'accounts']) attachments.push({ role, filename: files[role].filename, mime: 'application/pdf', size: files[role].bytes.length, sha256: await sha256Hex(files[role].bytes), synthetic: true });
   const payloadHash = await packageHash({ answers: normalised, attachments, adapter: ADAPTER_ID });

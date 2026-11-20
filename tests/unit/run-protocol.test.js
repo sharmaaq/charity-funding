@@ -21,11 +21,11 @@ test('the browser manifest has exactly the keys the server requires and passes s
 });
 
 test('buildManifest maps snapshot attachments and binds the review to the hash', () => {
-  const snap = { id: 's', applicationId: 'a', revision: 2, answers: { 'org.name': 'YOR Plc' }, attachments: [{ role: 'proposal', filename: 'p.pdf', mime: 'application/pdf', size: 3, sha256: 'h', synthetic: true, fileId: 'x' }], payloadHash: 'H' };
+  const snap = { id: 's', applicationId: 'a', revision: 2, answers: { 'org.name': 'Your Place' }, attachments: [{ role: 'proposal', filename: 'p.pdf', mime: 'application/pdf', size: 3, sha256: 'h', synthetic: true, fileId: 'x' }], payloadHash: 'H' };
   const m = buildManifest(snap, A);
   assert.deepEqual(m.attachments[0], { role: 'proposal', filename: 'p.pdf', mimeType: 'application/pdf', sizeBytes: 3, sha256: 'h', synthetic: true });
   assert.deepEqual(m.review, { demoReviewed: true, demoTransfer: true, reviewedPayloadHash: 'H' });
-  assert.deepEqual(m.answers, { org: { name: 'YOR Plc' } });
+  assert.deepEqual(m.answers, { org: { name: 'Your Place' } });
   assert.equal(m.mode, 'demo');
 });
 

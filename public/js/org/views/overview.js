@@ -25,14 +25,14 @@ export function overviewSection(ctx, profile, { collapsed = false } = {}) {
     root.classList.toggle('collapsed', collapsed);
     if (collapsed) {
       root.replaceChildren(
-        h('h2', { id: 'overview-heading', text: 'About YOR Plc' }),
+        h('h2', { id: 'overview-heading', text: `About ${current.name || 'the organisation'}` }),
         h('a', { class: 'link-btn', href: ORG_HOME, text: 'Show the full overview' }));
       return;
     }
     const editBtn = guard(ctx, h('button', { type: 'button', class: 'btn', id: 'edit-profile', text: 'Edit organisation information', onclick: showForm }));
     root.replaceChildren(
       h('div', { class: 'overview-main' },
-        h('h2', { id: 'overview-heading', text: 'About YOR Plc' }),
+        h('h2', { id: 'overview-heading', text: `About ${current.name || 'the organisation'}` }),
         h('p', { class: 'overview-text', 'data-testid': 'overview-text', text: current.overview }),
         h('dl', { class: 'facts' },
           fact('Who we support', current.beneficiaries),
@@ -59,7 +59,7 @@ export function overviewSection(ctx, profile, { collapsed = false } = {}) {
     const cancel = h('button', { type: 'button', class: 'btn', text: 'Cancel' });
     const form = h('form', { class: 'org-form', novalidate: true, 'aria-labelledby': 'edit-heading' },
       h('h2', { id: 'edit-heading', tabindex: '-1', text: 'Edit organisation information' }),
-      h('p', { class: 'field-hint', text: 'The organisation name stays YOR Plc.' }),
+      h('p', { class: 'field-hint', text: `The organisation name stays ${current.name || 'as it is'}.` }),
       banner.el,
       h('div', { class: 'form-grid' }, fields.map((f) => f.el)),
       h('div', { class: 'actions-row' }, save, cancel));

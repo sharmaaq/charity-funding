@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { FIXTURES, validateFixtureTiming } from '../../public/js/fixtures.js';
+import { FIXTURES, validateFixtureTiming } from '../../server/seed/your-place-grants.js';
 
 const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'public');
 
@@ -36,9 +36,10 @@ function listFiles(dir) {
   });
 }
 
-test('no file under public/ names the real charity or its registration number', () => {
-  // Built from fragments so this test file does not itself contain the strings.
-  const forbidden = [['Your', 'Place'].join(' '), ['Your', 'Place'].join(''), ['1147', '794'].join('')];
+test('no file under public/ contains a real registration number', () => {
+  // The demo charity is deliberately called Your Place (S4-001), but the demo content must never carry its real
+  // registration number. Built from fragments so this test file does not itself contain the string.
+  const forbidden = [['1147', '794'].join('')];
   const files = listFiles(publicDir);
   assert.ok(files.length >= 4, 'public/ files found');
   for (const f of files) {

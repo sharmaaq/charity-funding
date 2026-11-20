@@ -3,7 +3,7 @@ import { h, formatBytes, downloadBlob } from '../dom.js';
 import { FILE_TYPES, fileExtension, labelOf, OUTCOMES } from '../validation.js';
 import { SYNTHETIC_LABEL } from '../seed.js';
 
-export const STORAGE_NOTICE = 'Files are stored in this browser only. Keep your originals. AI processing is not connected in this demo.';
+export const STORAGE_NOTICE = 'Files are stored privately for this charity on the server and are only visible to its members. Keep your originals. AI processing is not connected in this demo.';
 export const READ_ONLY_ID = 'org-readonly-note';
 
 export const typeLabel = (doc) => (FILE_TYPES[fileExtension(doc.filename)] || { label: 'FILE' }).label;

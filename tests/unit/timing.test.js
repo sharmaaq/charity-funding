@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { FIXTURES } from '../../public/js/fixtures.js';
+import { FIXTURES } from '../../server/seed/your-place-grants.js';
 import { withPreviewTiming, isTimingPreview } from '../../public/js/preview.js';
 import {
   londonParts,

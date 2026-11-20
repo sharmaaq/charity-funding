@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>YOR Plc - Grant discovery (demo)</title>
+  <title>Grant discovery (demo)</title>
   <link rel="preload" href="/fonts/lilita-one-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/application.css">
@@ -12,14 +12,15 @@
   <a class="skip" href="#main">Skip to main content</a>
   <div class="strip">
     <div class="wrap">
-      <p><strong>Demo discovery - 15 November 2026 snapshot</strong></p>
-      <p>Assessments are demo recommendations for YOR Plc, a demo charity. They are not verified eligibility or a funding promise.</p>
+      <p><strong id="strip-title"></strong></p>
+      <p id="strip-text"></p>
     </div>
   </div>
   <header class="site-header">
     <div class="wrap">
-      <p class="brand"><a class="brand-link" id="brand-link" href="#/organisation" aria-label="YOR Plc organisation information"><span class="wordmark"><span class="wm-a">YOR</span> <span class="wm-b">Plc</span></span></a> <span class="descriptor">Grant funding (demo)</span></p>
+      <p class="brand"><a class="brand-link" id="brand-link" href="#/organisation"><span class="wordmark"><span class="wm-a" id="wm-a"></span> <span class="wm-b" id="wm-b"></span></span></a> <span class="descriptor">Grant funding (demo)</span></p>
       <nav aria-label="Main" id="main-nav"></nav>
+      <div class="account" id="account" hidden></div>
     </div>
   </header>
   <div class="band">
@@ -38,7 +39,7 @@
     </div>
   </div>
   <div class="wrap workspace">
-    <p id="storage-notice" class="notice" role="status" hidden>Saving is unavailable in this browser, so your changes will be lost when you close or reload this page.</p>
+    <p id="storage-notice" class="notice" role="status" hidden>Your latest changes could not be saved to the server, so they may be lost when you close or reload this page. Check your connection; the next change will try again.</p>
     <div id="live" class="live" role="status" aria-live="polite"></div>
     <section id="ai-panel" class="ai-panel" aria-labelledby="ai-heading" hidden>
       <div class="ai-head">

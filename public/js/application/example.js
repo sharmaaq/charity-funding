@@ -12,11 +12,11 @@ export const EXAMPLE_VERSION = '2026-11-15';
 const GBP = (pounds) => pounds * 100;
 
 const VALUES = {
-  'org.name': 'YOR Plc',
+  'org.name': 'Your Place',
   'org.type': 'synthetic-registered-charity',
   'org.address': 'Demo office, London',
   'org.postcode': 'E16 1AA',
-  'org.overview': 'YOR Plc, in this demonstration, provides accommodation together with practical support for people who have experienced homelessness in London. Staff help residents to settle into a stable home, build everyday tenancy and budgeting skills, and reach the other services they need. All of the facts in this worked example are fictional and are provided only to show how an application is prepared.',
+  'org.overview': 'Your Place, in this demonstration, provides accommodation together with practical support for people who have experienced homelessness in London. Staff help residents to settle into a stable home, build everyday tenancy and budgeting skills, and reach the other services they need. All of the facts in this worked example are fictional and are provided only to show how an application is prepared.',
   'org.geography': 'London',
   'contact.firstName': 'Alex',
   'contact.lastName': 'Morgan',

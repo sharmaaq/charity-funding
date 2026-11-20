@@ -109,7 +109,7 @@ export async function startDemoPortal({ attemptId, payloadHash, now = () => new 
   const layout = (pageId, title, body) => `<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><title>DEMO test portal: ${esc(title)}</title>
 <style>body{font:16px/1.4 system-ui,sans-serif;margin:24px;max-width:760px}label{display:block;margin-top:12px;font-weight:600}input,select,textarea{display:block;width:100%;padding:6px;font:inherit}input[type=checkbox]{display:inline;width:auto}.err{color:#a00}.banner{background:#ffe9a8;padding:8px}</style></head>
 <body><main data-portal-version="${PORTAL_VERSION}" data-portal-token="${token}" data-page="${pageId}">
-<p class="banner" data-portal-banner>DEMO: controlled test portal run by the YOR Plc demo. This is not a Garfield Weston Foundation or Blackbaud service, and nothing entered here is sent to any funder.</p>
+<p class="banner" data-portal-banner>DEMO: controlled test portal run by the Your Place demo. This is not a Garfield Weston Foundation or Blackbaud service, and nothing entered here is sent to any funder.</p>
 <h1>DEMO test portal</h1><h2 data-page-title>${esc(title)}</h2>${body}</main></body></html>`;
 
   const control = (f, value, error) => {

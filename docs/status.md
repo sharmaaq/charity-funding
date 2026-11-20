@@ -1,5 +1,24 @@
 # Current status and handoff
 
+## Latest: S4-001 Phase 1 built and tested, awaiting Google Cloud step G5 — 2026-11-20 (implementing model)
+
+- Phase 1 (sign-in identity, charity tenancy, server-side storage, switcher, rename to Your Place) is built. Local tests all pass: unit 117 pass and 1 skipped, integration 75, Playwright 291 of 291 (phone-360, phone-390, desktop-1280).
+- Browser IndexedDB and localStorage tests were rewritten to check server state or removed; the list and reasons are in the [ticket](../project/sprint-4/tickets/S4-001-multi-charity-platform/ticket.md). Two real bugs found and fixed by the tests.
+- Google Cloud G1 to G4 done. G5 (OAuth consent screen and IAP client) needs the user in the console. Not deployed yet; the live site is still the previous public revision.
+- Not tested: Firestore and Cloud Storage against real services, and IAP sign-in on the live site.
+
+## Earlier: S4-001 multi-charity platform — 2026-11-20 (Claude)
+
+- User requested a multi-charity platform: Google sign-in, users in one or more charities with switching, strictly separate server-side data, Gemini discovery combining organisation information with the brief, admin onboarding with per-charity looks, draft-only operation. Requirements agreed in chat; Claude wrote [spec and plan](../project/sprint-4/tickets/S4-001-multi-charity-platform/ticket.md).
+- Plan and Google Cloud changes G1 to G7 approved by the user 2026-11-20. Phase 1 (sign-in, tenancy, server storage, rename) handed to the implementing model. Firestore, Vertex AI and IAP APIs are not yet enabled on the project.
+
+## Latest clarification: S3-002 — 2026-11-16 (ChatGPT)
+
+- User explicitly requires testing without submitting. [S3-002](../project/sprint-3/tickets/S3-002-draft-only-guardrails/spec.md) defines local_draft (no transfer), authorised portal_draft (real saved draft) and the separate existing controlled demo. Final-submit capability must be absent/blocked, with verified action/network mediation and fail-closed handling of ambiguous saves.
+- Official funder guidance confirms saved drafts; vendor guidance confirms autosave before separate final submit. Portal drafts transfer information externally and are not a private sandbox. Exact authenticated controls and real applicant inputs still require verification.
+- Preserved delivered S3-001 unchanged. New guardrails are specification only, not a claim implemented controls exist. No real portal accessed or application transferred/submitted; no app code or deployment changed.
+- Documentation verification: local Markdown links resolve across five new/updated documents; git diff --check passed. Application tests not run for this specification-only change.
+
 ## Latest handoff: S3-001 — 2026-11-15 (ChatGPT)
 
 - Specified [S3-001](../project/sprint-3/tickets/S3-001-automated-submission/ticket.md): Garfield Weston Regular Grants core-support questionnaire, attributed prefill and source-store integration, immutable PDF/file package, bounded internal API, real Playwright-controlled demonstration, receipts/Tracking and detailed live adapter readiness/mapping contract.

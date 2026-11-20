@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, settled } from './base.js';
 
 const ROUTES = ['#/discovery/new', '#/discovery/watchlist', '#/discovery/passed', '#/planning', '#/tracking'];
 
@@ -205,31 +205,47 @@ test('Tracking shows the demo-records notice, an empty state and no buttons insi
   await expect(page.locator('main li.grant')).toHaveCount(0);
 });
 
-test('a second fresh browser context starts with six in New', async ({ page, browser }) => {
+test('state is saved on the server: a second browser context for the same user sees the same decisions', async ({ page, browser }) => {
   await act(page, 'G-001', 'pass').click();
   await filter(page).getByRole('button', { name: 'Hide unsuitable' }).click();
   await expect(page.locator('li.grant')).toHaveCount(2);
+  await settled(page);
   const ctx = await browser.newContext({ viewport: page.viewportSize() });
   try {
     const p2 = await ctx.newPage();
     await p2.goto('/');
-    await expect(p2.locator('li.grant')).toHaveCount(6);
-    await expect(p2.getByTestId('hidden-note')).toHaveCount(0);
+    await expect(p2.locator('li.grant')).toHaveCount(2);
+    await expect(p2.getByTestId('hidden-note')).toContainText('3 unsuitable hidden');
+    await p2.goto('/#/discovery/passed');
+    await expect(p2.locator('li.grant[data-id="G-001"]')).toHaveCount(1);
   } finally {
     await ctx.close();
   }
 });
 
-test('corrupt or wrong-version saved data is discarded', async ({ page }) => {
-  await page.evaluate(() => localStorage.setItem('charity-funding.demo.v1', '{"version":99}'));
+test('old browser-only data is deleted on first load and never used', async ({ page }) => {
+  await page.evaluate(async () => {
+    localStorage.setItem('charity-funding.demo.v1', JSON.stringify({ version: 1, hideUnsuitable: true, grants: { 'G-001': { workflow: 'passed', override: false } } }));
+    await new Promise((resolve, reject) => { const r = indexedDB.open('charity-funding.organisation', 1); r.onupgradeneeded = () => r.result.createObjectStore('meta'); r.onsuccess = () => { r.result.close(); resolve(); }; r.onerror = () => reject(r.error); });
+  });
   await page.reload();
-  await expect(page.locator('li.grant')).toHaveCount(6);
-  await page.evaluate(() => localStorage.setItem('charity-funding.demo.v1', 'garbage'));
-  await page.reload();
-  await expect(page.locator('li.grant')).toHaveCount(6);
+  await expect(page.locator('li.grant')).toHaveCount(6); // the old "passed" decision was not read
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('charity-funding.demo.v1'))).toBeNull();
+  await expect.poll(() => page.evaluate(async () => (await indexedDB.databases()).some((d) => d.name === 'charity-funding.organisation'))).toBe(false);
 });
 
-test('works in memory with a notice when localStorage throws', async ({ browser, page }) => {
+test('a failed save shows the notice, and the next successful save clears it', async ({ page }) => {
+  await page.route('**/api/charities/*/decisions/*', (route) => route.abort());
+  await act(page, 'G-001', 'watch').click();
+  await expect(page.locator('#storage-notice')).toBeVisible();
+  await expect(page.locator('#storage-notice')).toContainText('could not be saved to the server');
+  await page.unroute('**/api/charities/*/decisions/*');
+  await act(page, 'G-002', 'watch').click();
+  await expect(page.locator('#storage-notice')).toBeHidden();
+  await expectNoOverflow(page);
+});
+
+test('works when localStorage throws: no notice, because the server holds the data', async ({ browser, page }) => {
   const ctx = await browser.newContext({ viewport: page.viewportSize() });
   try {
     await ctx.addInitScript(() => {
@@ -241,7 +257,7 @@ test('works in memory with a notice when localStorage throws', async ({ browser,
     });
     const p = await ctx.newPage();
     await p.goto('/');
-    await expect(p.locator('#storage-notice')).toBeVisible();
+    await expect(p.locator('#storage-notice')).toBeHidden();
     await expect(p.locator('li.grant')).toHaveCount(6);
     await act(p, 'G-001', 'pass').click();
     await expect(p.locator('li.grant')).toHaveCount(5);

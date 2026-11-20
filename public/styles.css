@@ -117,6 +117,12 @@ a:hover { color: var(--purple-dark); }
 #main-nav a[aria-current="page"] { border-bottom-color: var(--lime); background: var(--lilac); }
 #main-nav a:hover { background: var(--lilac-hover); }
 
+/* signed-in user and charity switcher */
+.account { flex: 1 0 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 4px 14px; font-size: 0.875rem; color: var(--muted); padding-bottom: 4px; }
+.account select { font: inherit; font-weight: 800; color: var(--purple); border: 2px solid var(--neutral-border); border-radius: 6px; background: #fff; min-height: 36px; padding: 0 8px; max-width: 100%; }
+.account .who { overflow-wrap: anywhere; }
+.account a { color: var(--purple); font-weight: 800; }
+
 /* title band */
 .band { position: relative; background: var(--purple); color: #fff; overflow: hidden; }
 .band .wrap { position: relative; display: flex; align-items: center; min-height: 72px; padding-top: 12px; padding-bottom: 12px; }

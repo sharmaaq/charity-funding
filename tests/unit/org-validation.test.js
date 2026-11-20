@@ -5,7 +5,6 @@ import {
   sortBids, sortDocuments, matchesBid, matchesDocument, parseAmount, FILE_TYPES,
 } from '../../public/js/org/validation.js';
 import { parseOrgHash } from '../../public/js/org/routes.js';
-import { materialiseSeed } from '../../public/js/org/repository.js';
 
 const TODAY = '2026-11-15';
 
@@ -139,16 +138,4 @@ test('routes parse and unknown organisation paths are rejected', () => {
   assert.deepEqual(parseOrgHash('#/organisation/bids/abc'), { page: 'bid-detail', id: 'abc' });
   assert.deepEqual(parseOrgHash('#/organisation/bids/abc/edit'), { page: 'bid-edit', id: 'abc' });
   assert.equal(parseOrgHash('#/organisation/nope'), null);
-});
-
-test('seed content: three bids with the required outcomes, four documents, all marked synthetic', () => {
-  let n = 0;
-  const s = materialiseSeed(new Date('2026-11-15T10:00:00Z'), () => 'id' + ++n);
-  assert.deepEqual(s.bids.map((b) => b.outcome).sort(), ['awaiting', 'successful', 'unsuccessful']);
-  assert.equal(s.documents.filter((d) => d.ownerType === 'organisation').length, 4);
-  assert.equal(s.documents.filter((d) => d.ownerType === 'bid').length, 4);
-  assert.equal(s.documents.filter((d) => d.role === 'feedback').length, 1);
-  assert.ok(s.bids.every((b) => b.synthetic) && s.documents.every((d) => d.synthetic));
-  assert.equal(s.blobs.size, s.documents.length);
-  assert.equal(s.profile.charityNumber, '');
 });

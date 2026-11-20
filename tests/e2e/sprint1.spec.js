@@ -1,5 +1,5 @@
-import { test, expect } from '@playwright/test';
-import { DEFAULT_BRIEF } from '../../public/js/discovery.js';
+import { test, expect, settled } from './base.js';
+import { YOUR_PLACE_BRIEF as DEFAULT_BRIEF } from '../../server/seed/your-place-brief.js';
 
 const NOW = '2026-11-15T10:00:00Z'; // 10:00 London
 
@@ -8,7 +8,17 @@ const act = (page, id, action) => row(page, id).locator(`button[data-action="${a
 const marker = (page, id, kind) => row(page, id).locator(`[data-marker="${kind}"]`);
 const brief = (page) => page.locator('#brief');
 const discover = (page) => page.getByRole('button', { name: 'Discover with AI' });
-const stored = (page) => page.evaluate(() => JSON.parse(localStorage.getItem('charity-funding.demo.v1') || 'null'));
+// What the server holds for Your Place, in the shape the old browser state had (after the page's writes have landed).
+const stored = async (page) => {
+  await settled(page);
+  return page.evaluate(async () => {
+    const ws = await (await fetch('/api/charities/your-place/workspace')).json();
+    const s = { hideUnsuitable: ws.hideUnsuitable, grants: ws.grants };
+    if (ws.freshId) s.freshId = ws.freshId;
+    if ('brief' in ws) s.brief = ws.brief;
+    return s;
+  });
+};
 
 async function expectNoOverflow(page) {
   const { sw, cw } = await page.evaluate(() => ({
@@ -47,7 +57,7 @@ test('fresh page: AI discovery panel with the default brief, one button, no New 
   await expect(page.locator('[data-marker="fresh"]')).toHaveCount(0);
   await expect(page.locator('a[data-tab="new"]')).toContainText('6');
   // Nothing was saved just by looking at the page, and the panel shows on all three Discovery views only.
-  expect((await stored(page)) === null || (await stored(page)).brief === undefined).toBe(true);
+  expect((await stored(page)).brief).toBe(DEFAULT_BRIEF);
   await page.goto('/#/discovery/watchlist');
   await expect(brief(page)).toBeVisible();
   await page.goto('/#/discovery/passed');

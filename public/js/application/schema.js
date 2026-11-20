@@ -75,7 +75,7 @@ const f = (def) => Object.freeze({ required: true, ...def });
 
 export const FIELDS = Object.freeze([
   // ---- Organisation ----
-  f({ id: 'org.name', section: 'organisation', label: 'Organisation name', type: 'text', fixed: true, dest: 'C', hint: 'This demo is fixed to YOR Plc.' }),
+  f({ id: 'org.name', section: 'organisation', label: 'Organisation name', type: 'text', fixed: true, dest: 'C', hint: 'The organisation name is taken from the charity and cannot be changed here.' }),
   f({ id: 'org.type', section: 'organisation', label: 'Legal status', type: 'enum', options: ORG_TYPES, dest: 'C', hint: 'Choose the synthetic option for the worked demo. No registration number is ever invented.', controls: true }),
   f({ id: 'org.charityNumber', section: 'organisation', label: 'Registration number', type: 'text', maxChars: LIMITS.identifier, required: false, when: [{ id: 'org.type', in: ['registered-charity'] }], dest: 'C', hint: 'Only for a real registered charity.' }),
   f({ id: 'org.companyNumber', section: 'organisation', label: 'Company number', type: 'text', maxChars: LIMITS.identifier, required: false, dest: 'I', hint: 'Optional.' }),

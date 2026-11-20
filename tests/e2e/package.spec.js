@@ -1,11 +1,11 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './base.js';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const EVIDENCE = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'project', 'sprint-3', 'tickets', 'S3-001-automated-submission', 'evidence');
-import { readStore, planAndLoadExample, confirmDeclarations, openReview, readyReview, gotoSection } from './package-helpers.js';
+import { readStore, writeAnswers, orgApi, planAndLoadExample, confirmDeclarations, openReview, readyReview, gotoSection } from './package-helpers.js';
 
 async function shot(page, name, opts = {}) {
   if (!process.env.S3_EVIDENCE) return;
@@ -58,7 +58,7 @@ test('worked example: package, hash, confirmations, disabled run control, frozen
   await expect(page.getByTestId('package-status')).toContainText('Nothing is saved');
   expect(await readStore(page, 'submissionSnapshots')).toHaveLength(0);
   await page.getByLabel('Run the demo transfer using this package').check();
-  await expect(page.getByTestId('package-status')).toContainText('Package saved in this browser');
+  await expect(page.getByTestId('package-status')).toContainText('Package saved as snapshot');
   const snaps = await readStore(page, 'submissionSnapshots');
   expect(snaps).toHaveLength(1);
   const hash = await page.getByTestId('package-hash').innerText();
@@ -78,7 +78,7 @@ test('worked example: package, hash, confirmations, disabled run control, frozen
   const buf = fs.readFileSync(saved);
   fs.unlinkSync(saved);
   expect(buf.subarray(0, 5).toString()).toBe('%PDF-');
-  expect(dl.suggestedFilename()).toBe('yor-plc-proposal.pdf');
+  expect(dl.suggestedFilename()).toBe('your-place-proposal.pdf');
 
   // source notes
   await page.getByTestId('source-notes').locator('summary').click();
@@ -145,26 +145,6 @@ test('incomplete draft: no package, both boxes disabled', async ({ page }) => {
   await expect(page.getByTestId('check-reviewed')).toBeDisabled();
 });
 
-async function writeAnswers(page, mutate, arg) {
-  await page.evaluate(({ src, arg }) => new Promise((resolve, reject) => {
-    const r = indexedDB.open('charity-funding.organisation');
-    r.onsuccess = () => {
-      const db = r.result;
-      const tx = db.transaction('applications', 'readwrite');
-      const st = tx.objectStore('applications');
-      st.getAll().onsuccess = (e) => {
-        const a = e.target.result[0];
-        // eslint-disable-next-line no-new-func
-        new Function('a', 'arg', src)(a, arg);
-        a.draftRevision += 1;
-        st.put(a);
-      };
-      tx.oncomplete = () => { db.close(); resolve(); };
-      tx.onerror = () => reject(tx.error);
-    };
-  }), { src: `(${mutate.toString()})(a, arg)`, arg });
-}
-
 test('unsupported character blocks the proposal, naming the field and the character', async ({ page }) => {
   await readyReview(page);
   await writeAnswers(page, (a) => { a.answers['work.need'].value += ' Ł'; });
@@ -192,17 +172,10 @@ test('a proposal over ten pages blocks and names the sections that are too long'
 
 test('a text file is never accepted as accounts, including one renamed to .pdf', async ({ page }) => {
   await readyReview(page);
-  const ids = await page.evaluate(async () => {
-    const { openDb } = await import('/js/org/db.js');
-    const { createRepository } = await import('/js/org/repository.js');
-    const db = await openDb();
-    const repo = createRepository(db, {});
-    const docs = await repo.listDocuments();
-    const txt = docs.find((d) => d.filename === 'accounts-example.txt');
-    const fake = await repo.uploadDocument(new File([new TextEncoder().encode('just text, not a pdf')], 'renamed.pdf', { type: 'application/pdf' }), { title: 'Renamed text', category: 'financial' });
-    db.close();
-    return { txt: txt.id, fake: fake.id };
-  });
+  const org = orgApi(page);
+  const txt = (await org.listDocuments()).find((d) => d.filename === 'accounts-example.txt');
+  const fake = await org.uploadDocument('renamed.pdf', 'application/pdf', new TextEncoder().encode('just text, not a pdf'), { title: 'Renamed text', category: 'financial' });
+  const ids = { txt: txt.id, fake: fake.id };
   for (const [id, expected] of [[ids.txt, /only PDF or DOCX/], [ids.fake, /does not start like a real PDF/]]) {
     await writeAnswers(page, (a, v) => { a.answers['evidence.accountsId'].value = v; }, id);
     await page.reload();

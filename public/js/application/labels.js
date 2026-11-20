@@ -21,7 +21,7 @@ export const NO_SOURCE_CHIP = 'No answer yet';
 
 // A category, never a score. "Suggested" is not "verified".
 export const ORIGIN_NOTE = Object.freeze({
-  profile: 'Taken from the organisation profile held in this browser. It has not been checked against the funder\'s requirements.',
+  profile: 'Taken from the organisation profile saved for this charity. It has not been checked against the funder\'s requirements.',
   manager: 'Typed or chosen by you.',
   'manual-document-excerpt': 'Manager supplied from a document: you pasted this text from a stored document and named where it came from. The app has not read the document itself.',
   'historical-bid': 'Taken from a past bid. A past bid can show structure; it does not establish current facts.',

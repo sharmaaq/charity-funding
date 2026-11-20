@@ -18,7 +18,7 @@ async function session(opts = {}) {
 }
 
 const VALID = {
-  organisation: { 'org.name': 'YOR Plc', 'org.type': 'synthetic-registered-charity', syntheticApplicant: 'on', 'org.address': 'Demo office, London', 'org.postcode': 'E16 1AA', 'contact.firstName': 'Alex', 'contact.lastName': 'Morgan', 'contact.role': 'Fundraising Manager', 'contact.employment': 'staff', 'contact.email': 'alex.morgan@example.org', 'contact.phone': '00000000000' },
+  organisation: { 'org.name': 'Your Place', 'org.type': 'synthetic-registered-charity', syntheticApplicant: 'on', 'org.address': 'Demo office, London', 'org.postcode': 'E16 1AA', 'contact.firstName': 'Alex', 'contact.lastName': 'Morgan', 'contact.role': 'Fundraising Manager', 'contact.employment': 'staff', 'contact.email': 'alex.morgan@example.org', 'contact.phone': '00000000000' },
   request: { 'request.type': 'core', 'request.title': 'Core', 'request.amountMode': 'specified', 'request.amountPence': '50000.00', 'request.start': '2027-06-01', 'request.end': '2028-05-31', 'org.geography': 'London', 'work.annualPeople': '250', 'request.people': '250', 'finance.historicalIncomePence': '7000000.00', 'finance.reportingEnd': '2026-03-31' },
   compliance: { 'eligibility.previousApplication': 'no', 'compliance.ukTaxResident': 'yes', 'compliance.safeguarding': 'yes', 'compliance.demographics': 'Not collected in example.' },
 };

@@ -2,10 +2,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { createServer } from '../../server.js';
+import { startHarness, USERS } from './harness.js';
 import { createApi } from '../../server/api.js';
 import { exampleRun } from './fixture.js';
 
+let harness;
 let server;
 let port;
 let base;
@@ -18,12 +19,12 @@ const api = createApi({
 });
 
 test.before(async () => {
-  server = createServer({ api });
-  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  harness = await startHarness({ api, defaultUser: USERS.a });
+  server = harness.server;
+  base = harness.base;
   port = server.address().port;
-  base = `http://127.0.0.1:${port}`;
 });
-test.after(() => new Promise((r) => server.close(r)));
+test.after(() => harness.close());
 test.beforeEach(() => { runnerCalls = 0; runnerImpl = async () => ({ receipt: { reference: 'DEMO-x', payloadHash: 'h', target: 'controlled-test-portal', confirmedAt: 't' }, files: [], metrics: { peakRssBytes: 0, blockedRequests: 0 } }); });
 
 function form(r, { manifest = r.manifest, extra = [], files = r.files, manifestText } = {}) {
@@ -54,9 +55,8 @@ test('capabilities: demo available, live unavailable with blockers, no-store, no
 });
 
 test('capabilities: when the browser cannot start, demoAvailable is false with a reason, and runs get 503', async () => {
-  const s = createServer({ api: createApi({ probe: async () => ({ ok: false, reason: 'The headless browser could not be started on this server.' }), log: () => {}, runDemo: async () => { throw new Error('must not run'); } }) });
-  await new Promise((r) => s.listen(0, '127.0.0.1', r));
-  const b = `http://127.0.0.1:${s.address().port}`;
+  const h2 = await startHarness({ api: createApi({ probe: async () => ({ ok: false, reason: 'The headless browser could not be started on this server.' }), log: () => {}, runDemo: async () => { throw new Error('must not run'); } }), defaultUser: USERS.a });
+  const b = h2.base;
   const a = (await (await fetch(`${b}/api/submission-capabilities`)).json()).adapters[0];
   assert.equal(a.demoAvailable, false);
   assert.match(a.demoUnavailableReason, /could not be started/);
@@ -64,7 +64,7 @@ test('capabilities: when the browser cannot start, demoAvailable is false with a
   const res = await fetch(`${b}/api/submission-demo-runs`, { method: 'POST', headers: { ...headers(r), Origin: b }, body: form(r) });
   assert.equal(res.status, 503);
   assert.equal((await res.json()).code, 'RUNNER_UNAVAILABLE');
-  await new Promise((x) => s.close(x));
+  await h2.close();
 });
 
 test('a valid run streams NDJSON: seq from 1, one terminal event, then the stream closes', async () => {
@@ -212,9 +212,8 @@ test('methods and unknown paths: no CORS, no preflight acceptance', async () => 
 });
 
 test('the real stack: real server, real runner, real Chromium, streamed to a verified DEMO receipt', async () => {
-  const s = createServer({ api: createApi({ log: () => {} }) });
-  await new Promise((r) => s.listen(0, '127.0.0.1', r));
-  const b = `http://127.0.0.1:${s.address().port}`;
+  const h3 = await startHarness({ api: createApi({ log: () => {} }), defaultUser: USERS.a });
+  const b = h3.base;
   const cap = (await (await fetch(`${b}/api/submission-capabilities`)).json()).adapters[0];
   assert.equal(cap.demoAvailable, true, 'Chromium starts on this machine');
   const r = await exampleRun();
@@ -228,5 +227,5 @@ test('the real stack: real server, real runner, real Chromium, streamed to a ver
   assert.equal(done.receipt.reference, `DEMO-${r.attemptId}`);
   assert.equal(done.receipt.payloadHash, r.manifest.payloadHash);
   assert.deepEqual(done.evidence.files.map((f) => f.sha256), r.manifest.attachments.map((a) => a.sha256));
-  await new Promise((x) => s.close(x));
+  await h3.close();
 });

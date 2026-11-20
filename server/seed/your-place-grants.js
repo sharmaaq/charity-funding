@@ -1,10 +1,10 @@
 // The only place grant data lives. Demo data, fixed snapshot of 15 November 2026.
 // Optional timing fields (used only for the Upcoming / Due soon markers, never parsed from the timing text):
 //   opensOn YYYY-MM-DD (London date), closesOn YYYY-MM-DD (London date), closesAt ISO instant with offset.
-import { validateTiming } from './timing.js';
+import { validateTiming } from '../../public/js/timing.js';
 
 export const PROFILE = {
-  name: 'YOR Plc',
+  name: 'Your Place',
   description:
     'Demo charity: a London homelessness housing and support charity with reported annual income of about £7.1m.',
 };
@@ -78,7 +78,7 @@ export const FIXTURES = [
     guidanceLabel: 'Criteria',
     assessment: 'unsuitable',
     reason:
-      "Unsuitable: restricted to charities with turnover below £500,000; YOR Plc's reported £7.1m income exceeds this size limit. Capital-only; no core costs or salaries.",
+      "Unsuitable: restricted to charities with turnover below £500,000; Your Place's reported £7.1m income exceeds this size limit. Capital-only; no core costs or salaries.",
     sources: [{ label: 'Criteria', url: 'https://www.help-the-homeless.org.uk/applying-for-funding' }],
   },
   {
@@ -93,7 +93,7 @@ export const FIXTURES = [
     guidanceLabel: 'Fund page',
     assessment: 'unsuitable',
     reason:
-      'Unsuitable: applicants need annual income below £2m; YOR Plc reported £7.1m. The homelessness theme fits, but organisational size does not.',
+      'Unsuitable: applicants need annual income below £2m; Your Place reported £7.1m. The homelessness theme fits, but organisational size does not.',
     sources: [{ label: 'Fund page', url: 'https://smitfc.org/sustaining-accommodation-fund/' }],
   },
   {

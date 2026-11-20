@@ -1,5 +1,9 @@
 # Requirements
 
+## S3-002 draft-only clarification — 2026-11-16
+
+Current proposed extension: [S3-002](../project/sprint-3/tickets/S3-002-draft-only-guardrails/spec.md), with complete delivered S3-001 baseline. User requires testing without submission. REQ-029 defines local versus portal drafts, scoped transfer authority, no final-submit capability, operation/network controls, Draft-status read-back and no automatic retry/fallback submission. REQ-027/028 extend live readiness/testing accordingly. Technical controls are proposed and not yet implemented. Current app's controlled demo remains separate and live connector disabled.
+
 Last updated: 2026-11-15.
 
 This register is an index. Acceptance criteria live in the complete proposed current specification, [S1-001 spec.md](../project/sprint-1/tickets/S1-001-discovery-markers/spec.md) (revision 6), carrying forward S0-003 visual requirements. S0-002 revision 4 remains the implemented baseline. The [original draft](../project/sprint-0/tickets/S0-001-initial-requirements/charity-funding-poc-spec.md) is historical.

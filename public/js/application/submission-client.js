@@ -1,6 +1,6 @@
 // Starting a demo run from the browser and following it to an honest outcome (spec sections 7, 8 and 10).
 //
-// - The attempt lock is taken in one IndexedDB transaction before anything is sent (repository.acquireAttempt).
+// - The attempt lock is taken in one server transaction before anything is sent (repository.acquireAttempt).
 // - While a run is in flight this page holds a Web Lock named after the attempt, so another tab can tell a live run
 //   from one left behind by a closed or reloaded page. A left-behind run becomes "interrupted, outcome unknown"; it is
 //   never retried automatically.
@@ -8,7 +8,7 @@
 //   terminal event for this attempt, ending in a receipt that matches this package, is "not confirmed".
 // - The final attempt state and the receipt are saved in one transaction. If that save fails the result stays on
 //   screen, can be downloaded, and the save can be retried. The run is never repeated to repair local storage.
-import { newId } from '../org/repository.js';
+import { newId } from '../ids.js';
 import { ADAPTER_ID, PACKAGE_SCHEMA } from './canonical.js';
 import { buildManifest, createEventReader, CAPABILITIES_ENDPOINT, RUN_ENDPOINT, MILESTONES, StreamError } from './run-protocol.js';
 
@@ -50,7 +50,8 @@ const locks = () => (typeof navigator !== 'undefined' && navigator.locks && type
 
 // Marks running attempts that no open page holds as interrupted_unknown. Safe to call on every render.
 export async function reconcileStale(apps, now = () => new Date()) {
-  const running = (await apps.listAttempts()).filter((a) => a.state === 'running' && ![...runs.values()].some((r) => r.attempt.id === a.id && r.phase === 'running'));
+  // Only this user's own running attempts can be judged here: another person's live run is not held by this page.
+  const running = (await apps.listAttempts()).filter((a) => a.state === 'running' && (!a.startedBy || !apps.userEmail || a.startedBy === apps.userEmail) && ![...runs.values()].some((r) => r.attempt.id === a.id && r.phase === 'running'));
   if (!running.length) return [];
   let stale;
   const lk = locks();
@@ -173,7 +174,7 @@ async function execute(apps, run, controller, nowIso) {
       },
     };
   } catch (e) {
-    outcome = { state: 'failed', error: { code: 'LOCAL', message: e.local || 'The demo run could not be started in this browser. Nothing was sent.' } };
+    outcome = { state: 'failed', error: { code: 'LOCAL', message: e.local || 'The demo run could not be started. Nothing was sent.' } };
   } finally {
     run.phase = outcome.state === 'demo_completed' ? 'completed' : outcome.state;
     run.error = outcome.error || null;

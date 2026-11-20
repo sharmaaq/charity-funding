@@ -15,7 +15,12 @@ import { fieldById, financeTotals, formatGroupedNumber, formatPence, outgoingVal
 export const PAGE = Object.freeze({ width: 595.28, height: 841.89, marginX: 56, top: 62, bottom: 70 });
 export const BODY_SIZE = 11;
 export const MAX_PAGES = 10;
-export const PROPOSAL_FILENAME = 'yor-plc-proposal.pdf';
+// The generated proposal's file name: the applicant's name, lower-cased, plus -proposal.pdf (Your Place: your-place-proposal.pdf).
+export const PROPOSAL_FILENAME = 'your-place-proposal.pdf';
+export function proposalFilename(name) {
+  const slug = String(name ?? '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60).replace(/-+$/g, '');
+  return `${slug || 'charity'}-proposal.pdf`;
+}
 const LEAD = 15;
 const H1 = 21;
 const H2 = 14;
@@ -58,7 +63,7 @@ function describe(values, answers) {
     id: 'overview', title: '1. Request overview',
     blocks: [
       { kind: 'facts', rows: [
-        ['Applicant', text('org.name') || 'YOR Plc'],
+        ['Applicant', text('org.name') || 'The applicant'],
         ['Request', text('request.title')],
         ['Funding type', 'Operating and core costs'],
         ['Amount requested', amount],
@@ -324,10 +329,12 @@ export async function buildProposal(answers, options = {}) {
 
   const fonts = { regular, bold };
   const lay = createLayout(fonts);
+  // The applicant's name, limited to what the PDF font can print.
+  const applicant = [...String(values['org.name'] || 'The applicant')].map((c) => (supported.has(c.codePointAt(0)) ? c : '?')).join('');
   lay.title([
-    ['YOR Plc', H1, 'bold'],
+    [applicant, H1, 'bold'],
     ...lay.wrap(`Proposal: ${title}`, 'bold', H2, CONTENT_W).map((l) => [l, H2, 'bold']),
-    ...lay.wrap('Operating and core costs, one-year request. Demo proposal prepared in the YOR Plc demonstration application.', 'regular', BODY_SIZE, CONTENT_W).map((l) => [l, BODY_SIZE, 'regular']),
+    ...lay.wrap(`Operating and core costs, one-year request. Demo proposal prepared in the ${applicant} demonstration application.`, 'regular', BODY_SIZE, CONTENT_W).map((l) => [l, BODY_SIZE, 'regular']),
   ]);
   for (const s of sections) {
     lay.startSection(s.id);
@@ -365,14 +372,14 @@ export async function buildProposal(answers, options = {}) {
     // footer: demo marking on the left, page number on the right
     const footerY = 34;
     pdfPage.drawLine({ start: { x: PAGE.marginX, y: footerY + 22 }, end: { x: PAGE.marginX + CONTENT_W, y: footerY + 22 }, thickness: 0.4, color: grey });
-    pdfPage.drawText(synthetic ? 'YOR Plc · Demo proposal' : 'YOR Plc · Demo proposal, not sent to any funder', { x: PAGE.marginX, y: footerY + 8, size: FOOT, font: regular, color: grey });
+    pdfPage.drawText(synthetic ? `${applicant} · Demo proposal` : `${applicant} · Demo proposal, not sent to any funder`, { x: PAGE.marginX, y: footerY + 8, size: FOOT, font: regular, color: grey });
     if (synthetic) pdfPage.drawText(EXAMPLE_LABEL, { x: PAGE.marginX, y: footerY - 4, size: FOOT, font: regular, color: grey });
     const label = `Page ${i + 1} of ${pageCount}`;
     pdfPage.drawText(label, { x: PAGE.marginX + CONTENT_W - regular.widthOfTextAtSize(label, FOOT), y: footerY + 8, size: FOOT, font: regular, color: grey });
   });
 
-  doc.setTitle('YOR Plc demo proposal');
-  doc.setAuthor('YOR Plc demonstration');
+  doc.setTitle(`${applicant} demo proposal`);
+  doc.setAuthor(`${applicant} demonstration`);
   doc.setSubject(synthetic ? EXAMPLE_LABEL : 'Demo proposal');
   doc.setProducer('charity-funding demo (pdf-lib)');
   doc.setCreator('charity-funding demo');
@@ -380,7 +387,7 @@ export async function buildProposal(answers, options = {}) {
   doc.setModificationDate(FIXED_DATE);
   const bytes = await doc.save({ useObjectStreams: false });
   const usage = sections.map((s) => ({ id: s.id, title: s.title, pages: Math.round((lay.usageOf(s.id) / USABLE_H) * 10) / 10 }));
-  return { bytes, pageCount, synthetic, filename: PROPOSAL_FILENAME, sections: usage };
+  return { bytes, pageCount, synthetic, filename: proposalFilename(values['org.name']), sections: usage };
 }
 
 // Page count of any PDF, read with pdf-lib. Resolves a number, or rejects with ProposalError('unreadable').

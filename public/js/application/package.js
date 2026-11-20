@@ -4,17 +4,15 @@
 //   sourceNotes(answers)                provenance, kept apart from the outgoing payload (pure)
 //   preparePackage(input)               builds the proposal, reads the accounts bytes, validates the files and hashes
 //                                       everything. Writes nothing.
-//   freezeSnapshot(apps, prepared, ...) writes the snapshot and the copies of the attachments in ONE transaction
+//   freezeSnapshot(apps, prepared, ...) sends the snapshot and the copies of the attachments to the server, which
+//                                       writes them in ONE transaction
 //
 // The canonical form and the hash live in canonical.js (pure, no imports) so the server can import the same file.
-import { OrgError } from '../org/db.js';
-import { LIMITS as ORG_LIMITS } from '../org/validation.js';
-import { newId } from '../org/repository.js';
+import { newId } from '../ids.js';
 import { ADAPTER_ID, PACKAGE_MODE, PACKAGE_SCHEMA, canonicalPackage, packageHash, sha256Hex } from './canonical.js';
 import { FIELDS, isApplicable, outgoingValues, plainValues } from './schema.js';
-import { BODY_SIZE, MAX_PAGES, PROPOSAL_FILENAME, ProposalError, buildProposal, readPdfPageCount } from './proposal.js';
+import { BODY_SIZE, MAX_PAGES, ProposalError, buildProposal, readPdfPageCount } from './proposal.js';
 import { PDF_MIME, validateTransferFile, validateTransferSet } from './transfer.js';
-import { totalStoredBytes, capacityError, APPLICATION_STORE } from './repository.js';
 
 export { ADAPTER_ID, PACKAGE_MODE, PACKAGE_SCHEMA, canonicalJson, canonicalPackage, packageHash, packagePayload, sha256Hex } from './canonical.js';
 export const SNAPSHOT_SCHEMA = PACKAGE_SCHEMA;
@@ -89,12 +87,12 @@ export class PackageBlocked extends Error {
   }
 }
 
-// input: { answers, application ({ proposalReplacement? }), catalogue, getBlob(id) -> Blob|null, evaluation }
+// input: { answers, application ({ proposalReplacement? }), catalogue, getBlob(id) -> Blob|null, getReplacementBlob() -> Blob|null, evaluation }
 // Resolves a prepared package:
 //   { normalised, attachments: [{ role, filename, mime, size, sha256, bytes, source, sourceId, sourceVersion, synthetic, generated, managerChecked?, pageCount? }],
 //     payloadHash, canonical, proposal: { source, pageCount, ... } }
 // Rejects with PackageBlocked (message safe to show) or ProposalError. Nothing is written.
-export async function preparePackage({ answers, application, catalogue, getBlob, evaluation }) {
+export async function preparePackage({ answers, application, catalogue, getBlob, getReplacementBlob = null, evaluation }) {
   if (!evaluation || !evaluation.ready) throw new PackageBlocked('not-ready', 'The package can only be prepared when every applicable answer is present and confirmed.');
   const values = outgoingValues(answers);
 
@@ -103,11 +101,13 @@ export async function preparePackage({ answers, application, catalogue, getBlob,
   const rep = application && application.proposalReplacement;
   if (rep) {
     if (!rep.managerChecked) throw new PackageBlocked('replacement-unchecked', 'Your own proposal PDF has not been confirmed. Confirm its page count, text size and layout, or go back to the generated proposal.');
-    const bytes = await bytesOf(rep.blob);
+    const repBlob = rep.blob || (getReplacementBlob ? await getReplacementBlob() : null);
+    if (!repBlob) throw new PackageBlocked('replacement-unreadable', 'Your own proposal PDF could not be read from storage. Add it again, or go back to the generated proposal.');
+    const bytes = await bytesOf(repBlob);
     proposal = { role: 'proposal', filename: rep.filename, mime: PDF_MIME, bytes, source: 'replacement', sourceId: null, sourceVersion: rep.sha256, synthetic: false, generated: false, managerChecked: true, pageCount: rep.pageCount };
   } else {
     const built = await buildProposal(answers); // ProposalError blocks here
-    proposal = { role: 'proposal', filename: PROPOSAL_FILENAME, mime: PDF_MIME, bytes: built.bytes, source: 'generated', sourceId: null, sourceVersion: null, synthetic: built.synthetic, generated: true, managerChecked: false, pageCount: built.pageCount };
+    proposal = { role: 'proposal', filename: built.filename, mime: PDF_MIME, bytes: built.bytes, source: 'generated', sourceId: null, sourceVersion: null, synthetic: built.synthetic, generated: true, managerChecked: false, pageCount: built.pageCount };
   }
 
   // accounts: a stored PDF or DOCX, copied exactly as stored
@@ -161,12 +161,12 @@ export async function inspectReplacementProposal(file) {
 export const REPLACEMENT_CHECK_TEXT = (pageCount) => `I have checked this PDF: it has ${pageCount} ${pageCount === 1 ? 'page' : 'pages'}, the text is at least ${BODY_SIZE} points and the layout is readable.`;
 
 // ---------------------------------------------------------------- freezing
-// Writes the SubmissionSnapshot and the copies of the outgoing attachments in ONE readwrite transaction.
+// Sends the SubmissionSnapshot and the copies of the outgoing attachments to the server, which writes them in ONE
+// transaction. Everything slow (building, SHA-256) happened in preparePackage BEFORE this is called.
 //
-// Everything slow (building, reading blobs, SHA-256) happened in preparePackage BEFORE this opens a transaction, so the
-// transaction contains only IndexedDB requests. At commit it re-reads the draft revision, the manager's replacement
-// proposal and the accounts document's version, and aborts with `conflict` / `source-changed` if any differ from what was
-// hashed. It also counts the copies against the shared 100 MiB budget.
+// At commit the server re-reads the draft revision, the manager's replacement proposal and the accounts document's
+// version, rejects with `conflict` / `source-changed` if any differ from what was hashed, recomputes every checksum and
+// the package hash from the bytes it received, and counts the copies against the charity's 100 MiB budget.
 //
 // ctx: { application: { id, grantId, draftRevision }, answers (the full answer set, for origins and source notes),
 //        confirmations: { reviewedAt, transferAt }, capturedAt }
@@ -174,10 +174,7 @@ export const REPLACEMENT_CHECK_TEXT = (pageCount) => `I have checked this PDF: i
 // unchanged (created: false), so reviewing the same package twice never makes a duplicate.
 export function freezeSnapshot(apps, prepared, ctx) {
   const id = newId();
-  const files = prepared.attachments.map((a, i) => ({
-    id: newId(), snapshotId: id, order: i, role: a.role, filename: a.filename, mime: a.mime, size: a.size, sha256: a.sha256,
-    blob: new Blob([a.bytes], { type: a.mime }),
-  }));
+  const fileIds = prepared.attachments.map(() => newId());
   const origins = {};
   for (const fid of Object.keys(prepared.normalised)) origins[fid] = ctx.answers[fid] ? ctx.answers[fid].origin : null;
   const snapshot = {
@@ -192,7 +189,7 @@ export function freezeSnapshot(apps, prepared, ctx) {
     answers: prepared.normalised,
     origins,
     attachments: prepared.attachments.map((a, i) => ({
-      role: a.role, filename: a.filename, mime: a.mime, size: a.size, sha256: a.sha256, fileId: files[i].id,
+      role: a.role, filename: a.filename, mime: a.mime, size: a.size, sha256: a.sha256, fileId: fileIds[i],
       source: a.source, sourceId: a.sourceId, sourceVersion: a.sourceVersion, synthetic: !!a.synthetic, generated: !!a.generated,
       ...(a.managerChecked ? { managerChecked: true } : {}), ...(Number.isInteger(a.pageCount) ? { pageCount: a.pageCount } : {}),
     })),
@@ -201,40 +198,7 @@ export function freezeSnapshot(apps, prepared, ctx) {
     confirmations: { reviewedAt: ctx.confirmations.reviewedAt, transferAt: ctx.confirmations.transferAt },
     payloadHash: prepared.payloadHash,
   };
-  const newBytes = files.reduce((n, f) => n + f.size, 0);
-  const accounts = prepared.attachments.find((a) => a.role === 'accounts');
-  const replacement = prepared.attachments.find((a) => a.source === 'replacement');
-
-  return apps.transact([APPLICATION_STORE, 'documents', 'submissionSnapshots', 'submissionFiles'], 'readwrite', 'freezeSnapshot', (c) => {
-    const st = c.stores;
-    const got = {};
-    let pending = 6;
-    const next = () => { if (--pending === 0) write(); };
-    c.on(st[APPLICATION_STORE].get(ctx.application.id), (v) => { got.app = v; next(); });
-    c.on(st[APPLICATION_STORE].getAll(), (v) => { got.apps = v; next(); });
-    c.on(st.documents.get(accounts.sourceId), (v) => { got.doc = v; next(); });
-    c.on(st.documents.getAll(), (v) => { got.docs = v; next(); });
-    c.on(st.submissionFiles.getAll(), (v) => { got.files = v; next(); });
-    c.on(st.submissionSnapshots.index('applicationId').getAll(ctx.application.id), (v) => { got.snaps = v; next(); });
-
-    function write() {
-      const app = got.app;
-      if (!app) { c.fail(new OrgError('not-found')); return; }
-      if (app.draftRevision !== ctx.application.draftRevision) { c.fail(new OrgError('conflict', 'This application changed in another tab or window since this review was prepared. Nothing was saved. Open the review again.', { currentRevision: app.draftRevision })); return; }
-      if (replacement && !(app.proposalReplacement && app.proposalReplacement.sha256 === replacement.sha256 && app.proposalReplacement.managerChecked)) { c.fail(new OrgError('source-changed')); return; }
-      if (!replacement && app.proposalReplacement) { c.fail(new OrgError('source-changed')); return; }
-      if (!got.doc || (got.doc.updatedAt || null) !== (accounts.sourceVersion || null) || got.doc.size !== accounts.size) { c.fail(new OrgError('source-changed')); return; }
-      const existing = got.snaps.find((s) => s.payloadHash === prepared.payloadHash);
-      if (existing) { c.done({ snapshot: existing, created: false }); return; }
-      const used = totalStoredBytes(got.docs, got.files, got.apps);
-      if (used + newBytes > ORG_LIMITS.maxTotalBytes) { c.fail(capacityError(used, newBytes)); return; }
-      st.submissionSnapshots.add(snapshot); // add, never put: an existing record can never be overwritten
-      for (const f of files) st.submissionFiles.add(f);
-      st[APPLICATION_STORE].put({ ...app, lastSnapshotId: id }); // revision and updatedAt unchanged: only the pointer moves
-      c.afterWrites();
-      c.done({ snapshot, created: true });
-    }
-  });
+  return apps.freezeSnapshot(ctx.application.id, snapshot, prepared.attachments.map((a) => ({ bytes: a.bytes, mime: a.mime })));
 }
 
 // What a frozen snapshot hashes to, recomputed from its own stored fields and its stored file copies.

@@ -8,12 +8,12 @@ import {
   isApplicable, outgoingValues, parseInput, formatPence, isRealDate, SECTIONS,
 } from '../../public/js/application/schema.js';
 import { setManagerAnswer, confirmAnswer, editedAnswersThatWouldChange } from '../../public/js/application/answers.js';
-import { buildSuggestions, initialAnswers, staleMap, diffSuggestions, DEFAULT_OVERVIEW } from '../../public/js/application/prefill.js';
+import { buildSuggestions, initialAnswers, staleMap, diffSuggestions, GENERIC_DEFAULTS } from '../../public/js/application/prefill.js';
 import { buildExampleAnswers, EXAMPLE_FIELD_IDS } from '../../public/js/application/example.js';
 import { parseApplicationHash, appHash } from '../../public/js/application/routes.js';
 
 const NOW = '2026-11-15T10:00:00.000Z';
-const profile = { name: 'YOR Plc', overview: 'A demo charity that houses people. '.repeat(6), beneficiaries: 'People at risk', geography: 'London', activities: 'Housing and advice', charityNumber: '', companyNumber: '', website: '', updatedAt: '2026-11-01T00:00:00.000Z', synthetic: true };
+const profile = { name: 'Your Place', overview: 'A demo charity that houses people. '.repeat(6), beneficiaries: 'People at risk', geography: 'London', activities: 'Housing and advice', charityNumber: '', companyNumber: '', website: '', updatedAt: '2026-11-01T00:00:00.000Z', synthetic: true };
 
 test('schema.js is pure: no imports and no browser globals', () => {
   const src = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'public', 'js', 'application', 'schema.js'), 'utf8');
@@ -151,7 +151,7 @@ test('example text carries no real identifiers', () => {
 test('suggested defaults: profile first, then paragraph defaults; every paragraph fits its limits', () => {
   const s = buildSuggestions(profile);
   assert.equal(s['org.overview'].origin, 'profile');
-  assert.equal(buildSuggestions({ ...profile, overview: '' })['org.overview'].value, DEFAULT_OVERVIEW);
+  assert.equal(buildSuggestions({ ...profile, overview: '' })['org.overview'].value, GENERIC_DEFAULTS.overview.replace('{name}', profile.name));
   assert.equal(buildSuggestions({ ...profile, overview: '' })['org.overview'].origin, 'suggested-draft');
   for (const id of ['request.reason', 'work.need', 'work.activities', 'work.beneficiaries', 'work.outcomes', 'finance.fundraising', 'finance.fallback']) {
     assert.equal(s[id].origin, 'suggested-draft', id);

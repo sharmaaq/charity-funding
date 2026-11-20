@@ -1,27 +1,24 @@
 // Organisation area controller: opens storage, seeds once, renders the routes into <main>.
 // app.js stays the router and shell; it calls createOrganisation() and delegates #/organisation routes here.
 import { h } from './dom.js';
-import { OrgError, mapError, openDb } from './db.js';
-import { createRepository, createSeedRepository } from './repository.js';
-import { LIMITS } from './validation.js';
+import { OrgError, mapError } from './db.js';
 import { BIDS_HASH, DOCS_HASH, ORG_HOME } from './routes.js';
 import { confirmDialog } from './views/dialog.js';
 import { overviewSection } from './views/overview.js';
 import { bidDetail, bidForm, bidNotFound, bidsPanel } from './views/bids.js';
 import { documentsPanel } from './views/documents.js';
-import { READ_ONLY_ID, STORAGE_NOTICE } from './views/common.js';
+import { STORAGE_NOTICE } from './views/common.js';
 
 export { isOrgHash, parseOrgHash } from './routes.js';
 
 const AREA_TITLE = 'Organisation information';
 
 const PROBLEM_TEXT = {
-  blocked: 'Another tab of this site is still using an older version of the organisation database. Close other tabs of this site, then choose Retry.',
-  'unknown-schema': 'This browser holds organisation data saved by a different version of this app, so it cannot be opened safely here. Nothing has been changed or deleted.',
-  corrupt: 'Some saved organisation records could not be read. Nothing has been changed or deleted, and your files are still stored in this browser.',
+  unavailable: 'The server could not be reached, so organisation information cannot be loaded. Check your connection, then choose Retry. Nothing was changed.',
+  corrupt: 'Some saved organisation records could not be read. Nothing has been changed or deleted.',
 };
 
-export function createOrganisation({ mount, titleEl, now, announce, announceNext, navigate }) {
+export function createOrganisation({ mount, titleEl, now, announce, announceNext, navigate, services }) {
   let dirty = false;
   let token = 0;
   let current = null; // { route }
@@ -35,31 +32,10 @@ export function createOrganisation({ mount, titleEl, now, announce, announceNext
     }
   });
 
-  const testHooks = () => globalThis.__ORG_TEST_HOOKS__ || {};
-
-  // Opens the database and seeds once. Never deletes or recreates anything to recover from an error.
+  // The repository is a client of the charity-scoped API (created by app.js for the current charity). Storage problems
+  // surface as typed errors from the first call; nothing is deleted or recreated to recover from one.
   function ensureRepo() {
-    if (!repoPromise) {
-      repoPromise = (async () => {
-        let db;
-        try {
-          db = await openDb();
-        } catch (e) {
-          const err = mapError(e);
-          // Cannot be opened at all: show the sample content from memory, read-only.
-          if (err.code === 'unavailable' || err.code === 'unknown') return { repo: createSeedRepository({ now }), readOnly: true, problem: err };
-          return { repo: null, readOnly: true, problem: err };
-        }
-        try {
-          const repo = createRepository(db, { now, limits: { ...LIMITS, ...(testHooks().limits || {}) }, hooks: testHooks });
-          await repo.seedOnce();
-          return { repo, readOnly: false, problem: null };
-        } catch (e) {
-          db.close();
-          return { repo: null, readOnly: true, problem: mapError(e) };
-        }
-      })();
-    }
+    if (!repoPromise) repoPromise = Promise.resolve({ repo: services.org, readOnly: false, problem: null });
     return repoPromise;
   }
 
@@ -95,12 +71,6 @@ export function createOrganisation({ mount, titleEl, now, announce, announceNext
       h('p', { class: 'sub', text: 'Grant triage in Discovery is not affected.' }));
   }
 
-  function readOnlyBanner() {
-    return h('div', { class: 'notice', id: READ_ONLY_ID, role: 'status', 'data-testid': 'read-only-note' },
-      h('strong', { text: 'Read-only: saving is unavailable in this browser. ' }),
-      'Your browser did not allow this site to open its local storage database (IndexedDB), so nothing can be uploaded, edited or saved here. The sample content below is shown for review only. Grant triage in Discovery is not affected.');
-  }
-
   function tabs(route, bidCount, docCount) {
     const onDocs = route.page === 'documents';
     const tab = (href, label, count, active) => h('li', null,
@@ -113,7 +83,6 @@ export function createOrganisation({ mount, titleEl, now, announce, announceNext
   async function build(route, info) {
     const ctx = makeCtx(info);
     const parts = [];
-    if (info.readOnly && info.repo) parts.push(readOnlyBanner());
     const profile = await ctx.repo.getProfile();
     if (!profile) throw new OrgError('corrupt', 'The organisation profile record is missing.');
 

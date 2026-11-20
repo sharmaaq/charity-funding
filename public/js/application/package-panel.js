@@ -79,7 +79,7 @@ export function buildPackagePanel(sess, api) {
       const snap = active ? active.snapshot : done;
       if (!snap || mine !== state.token) return;
       Object.assign(state, { snapshot: snap, phase: 'frozen', reviewed: true, transfer: true, created: false });
-      state.savedMessage = `This package is saved in this browser as snapshot ${snap.id.slice(0, 8)}. Hash ${shortHash(snap.payloadHash)}.`;
+      state.savedMessage = `This package is saved as snapshot ${snap.id.slice(0, 8)}. Hash ${shortHash(snap.payloadHash)}.`;
       await loadRunHistory();
     } catch { /* no history: the review starts with both boxes clear */ }
   }
@@ -181,7 +181,7 @@ export function buildPackagePanel(sess, api) {
     if (receipt) {
       if (run && run.saveError) {
         parts.push(h('div', { class: 'form-error', role: 'alert', 'data-testid': 'receipt-not-saved' },
-          h('p', { text: 'Demo completed; receipt not saved in this browser. Download the receipt now, or retry saving it. The demo run is not repeated.' }),
+          h('p', { text: 'Demo completed; receipt not saved. Download the receipt now, or retry saving it. The demo run is not repeated.' }),
           h('button', { type: 'button', class: 'btn primary', 'data-testid': 'retry-save', text: 'Retry save', onclick: () => run.retrySave() })));
       }
       parts.push(completion(receipt));
@@ -206,7 +206,7 @@ export function buildPackagePanel(sess, api) {
       if (sess.dirty || sess.saveState !== 'saved') throw new PackageBlocked('unsaved', 'Your latest changes are not saved yet, so no package is prepared from them. Go back to the form, save the draft, then open the review again.');
       const svc = await api.services();
       if (svc.problem || !svc.org) throw new PackageBlocked('store', 'The organisation store could not be read, so the accounts document cannot be copied into a package. Nothing was changed.');
-      const prep = await preparePackage({ answers: sess.answers, application: sess.app, catalogue: sess.catalogue, getBlob: (id) => svc.org.getBlob(id), evaluation: sess.eval });
+      const prep = await preparePackage({ answers: sess.answers, application: sess.app, catalogue: sess.catalogue, getBlob: (id) => svc.org.getBlob(id), getReplacementBlob: () => svc.apps.getProposalReplacementBlob(sess.app.id), evaluation: sess.eval });
       if (mine !== state.token) return;
       state.prep = prep;
       state.phase = 'ready';
@@ -225,7 +225,7 @@ export function buildPackagePanel(sess, api) {
     const mine = state.token;
     state.phase = 'freezing';
     paintChecks();
-    setStatus('busy', 'Saving the package in this browser…');
+    setStatus('busy', 'Saving the package…');
     try {
       const svc = await api.services();
       const at = api.nowIso();
@@ -240,11 +240,11 @@ export function buildPackagePanel(sess, api) {
       state.created = res.created;
       state.phase = 'frozen';
       sess.app = { ...sess.app, lastSnapshotId: res.snapshot.id };
-      state.savedMessage = `${res.created ? 'Package saved' : 'This exact package was already saved'} in this browser as snapshot ${res.snapshot.id.slice(0, 8)}. Hash ${shortHash(res.snapshot.payloadHash)}. It cannot be changed; editing your answers makes a new revision and a new review.`;
+      state.savedMessage = `${res.created ? 'Package saved' : 'This exact package was already saved'} as snapshot ${res.snapshot.id.slice(0, 8)}. Hash ${shortHash(res.snapshot.payloadHash)}. It cannot be changed; editing your answers makes a new revision and a new review.`;
       paintChecks();
       loadRunHistory();
       setStatus('ok', state.savedMessage);
-      api.announce('Package saved in this browser.');
+      api.announce('Package saved.');
     } catch (e) {
       if (mine !== state.token) return;
       const err = mapError(e);
@@ -312,7 +312,7 @@ export function buildPackagePanel(sess, api) {
   function notesView(notes) {
     return h('details', { class: 'source-notes', 'data-testid': 'source-notes' },
       h('summary', { text: 'View source notes' }),
-      h('p', { class: 'sub', text: 'Where each outgoing answer came from. These notes stay in this browser; they are not part of the proposal and not part of the package hash.' }),
+      h('p', { class: 'sub', text: 'Where each outgoing answer came from. These notes stay with this application; they are not part of the proposal and not part of the package hash.' }),
       h('dl', { class: 'review-list' }, notes.map((n) => h('div', { class: 'review-row', 'data-note': n.fieldId },
         h('dt', { text: n.label }),
         h('dd', null,

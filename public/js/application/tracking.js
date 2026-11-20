@@ -1,4 +1,4 @@
-// Tracking: the demo receipts recorded in this browser, grouped by application, with each attempt's history.
+// Tracking: the demo receipts recorded for this charity, grouped by application, with each attempt's history.
 // Demo records only. Nothing here is an award, a decision or an "awaiting decision" status, and no grant record or
 // past bid is created or changed.
 import { h, formatDateTime, formatBytes, downloadBlob } from '../org/dom.js';
@@ -31,7 +31,7 @@ export function buildTracking({ services, getGrant }) {
       paint(receipts, attempts, apps);
     } catch (e) {
       root.replaceChildren(h('p', { class: 'placeholder-notice', 'data-testid': 'tracking-notice', text: TRACKING_NOTICE }),
-        h('p', { class: 'form-error', role: 'alert', text: `Demo receipts could not be read in this browser: ${mapError(e).message}` }));
+        h('p', { class: 'form-error', role: 'alert', text: `Demo receipts could not be read: ${mapError(e).message}` }));
     }
   }
 

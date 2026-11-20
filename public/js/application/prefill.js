@@ -6,11 +6,21 @@
 // only OFFERS differences, and the manager chooses each one.
 import { FIELDS, fieldById } from './schema.js';
 
-export const DEFAULT_OVERVIEW = 'YOR Plc is a London-based charity providing housing and support for people experiencing homelessness. Its work focuses on helping people achieve greater housing stability and move towards independent living. This description is a starting point based on the demonstration profile; the funding manager should confirm the current services, locations and scale of delivery before using it in an application.';
+// Wording that depends on the charity. Each charity can supply its own set (Your Place's is part of its seed data on the
+// server and arrives with the workspace); a charity without one gets the neutral text below. `{name}`, `{activities}`
+// and `{beneficiaries}` are replaced with the organisation's name and its profile entries.
+export const GENERIC_DEFAULTS = Object.freeze({
+  overview: '{name} is a charity. This description is a starting point: the funding manager should confirm the current services, locations and scale of delivery before using it in an application.',
+  requestTitle: 'Core services',
+  reason: 'We propose requesting a contribution towards the general operating costs of {name}\'s services for a twelve-month period. The contribution would support the shared resources needed to deliver consistent help to the people the charity supports, rather than fund one named post. The requested amount, funded period and expenditure allocation are illustrative until the funding manager confirms the budget and the organisation\'s priorities.',
+  need: 'This draft proposes supporting {name}\'s ongoing work. The application still needs current local evidence, an explanation of the particular barriers faced by the people {name} supports, and a clear account of where existing provision falls short. The funding manager should replace this draft with evidence from the organisation\'s service records and verified local information.',
+  activities: '{name}\'s services, as described in its organisation profile, include: {activities}. Core funding would help keep these shared services staffed and available throughout the year, so that people receive consistent support. The funding manager should confirm the current activities, who delivers them and how they are organised before this answer is used.',
+  activitiesFallback: 'the services described in the organisation profile',
+  beneficiaries: 'The organisation profile describes the people supported as: {beneficiaries}. The funding manager should describe who the services reach in practice, including their circumstances, how they are referred and any groups who are harder to reach.',
+  beneficiariesFallback: 'the people the charity supports',
+});
 
-export const SUGGESTED_REASON = 'We propose requesting a contribution towards the general operating costs of YOR Plc\'s housing and support services for a twelve-month period. The contribution would support the shared resources needed to deliver consistent help to people experiencing homelessness, rather than fund one named post. The requested amount, funded period and expenditure allocation are illustrative until the funding manager confirms the budget and the organisation\'s priorities.';
-
-export const SUGGESTED_NEED = 'People experiencing homelessness can need sustained support alongside accommodation to establish a stable home and access appropriate services. This draft proposes supporting that ongoing work in London. The application still needs current local evidence, an explanation of the particular barriers faced by the people YOR Plc supports, and a clear account of where existing provision falls short. The funding manager should replace this draft with evidence from the organisation\'s service records and verified local information.';
+const fill = (template, vars) => String(template).replace(/\{(name|activities|beneficiaries)\}/g, (_, k) => vars[k]);
 
 const SUGGESTED_OUTCOMES = 'Suggested measures of success for core support are people sustaining their accommodation, people moving towards independent living and people staying engaged with the support they are offered. No past results are claimed in this draft. The funding manager should add the measures the organisation actually records, how often they are reviewed and who reviews them.';
 const SUGGESTED_FUNDRAISING = 'Core support from this funder would form one part of the income needed to run the services. This draft assumes the remaining income would come from existing service contracts, other trusts and foundations, and donations. No funding is described as committed unless it is shown as secured in the budget. The funding manager should replace this with the organisation\'s real plan and timetable for raising the balance.';
@@ -33,7 +43,9 @@ const sentence = (s) => text(s).replace(/[.\s]+$/, '');
 
 // { [fieldId]: { value, origin, sourceRefs } } for every field that has a source-based default.
 // Fields with no default (contact details, eligibility, compliance, accounts) are deliberately absent: unknown stays null.
-export function buildSuggestions(profile) {
+export function buildSuggestions(profile, defaults = null) {
+  const d = { ...GENERIC_DEFAULTS, ...(defaults || {}) };
+  const name = text(profile && profile.name) || 'The charity';
   const out = {};
   const pRef = profile ? [profileRef(profile)] : [];
   const fromProfile = (id, value) => { if (text(value)) out[id] = { value: text(value), origin: 'profile', sourceRefs: pRef }; };
@@ -45,20 +57,20 @@ export function buildSuggestions(profile) {
   fromProfile('org.website', profile && profile.website);
   fromProfile('org.geography', profile && profile.geography);
   if (text(profile && profile.overview)) fromProfile('org.overview', profile.overview);
-  else draft('org.overview', DEFAULT_OVERVIEW);
+  else draft('org.overview', fill(d.overview, { name }));
 
   draft('request.type', 'core');
-  draft('request.title', 'Housing stability and support — core services');
+  draft('request.title', d.requestTitle);
   draft('request.amountMode', 'specified');
   draft('request.amountPence', 5000000);
   draft('request.start', DEFAULT_START);
   draft('request.end', DEFAULT_END);
-  draft('request.reason', SUGGESTED_REASON);
-  draft('work.need', SUGGESTED_NEED);
-  const acts = sentence(profile && profile.activities);
-  draft('work.activities', `YOR Plc's services, as described in its organisation profile, include: ${acts || 'supported housing and practical help'}. Core funding would help keep these shared services staffed and available throughout the year, so that people receive consistent support with accommodation, advice, tenancy support and practical help. The funding manager should confirm the current activities, who delivers them and how they are organised before this answer is used.`, [defaultRef(), ...pRef]);
-  const ben = sentence(profile && profile.beneficiaries);
-  draft('work.beneficiaries', `People experiencing homelessness or housing insecurity in London. The organisation profile describes the people supported as: ${ben || 'people experiencing or at risk of homelessness'}. The funding manager should describe who the services reach in practice, including their circumstances, how they are referred and any groups who are harder to reach.`, [defaultRef(), ...pRef]);
+  draft('request.reason', fill(d.reason, { name }));
+  draft('work.need', fill(d.need, { name }));
+  const acts = sentence(profile && profile.activities) || d.activitiesFallback;
+  draft('work.activities', fill(d.activities, { name, activities: acts }), [defaultRef(), ...pRef]);
+  const ben = sentence(profile && profile.beneficiaries) || d.beneficiariesFallback;
+  draft('work.beneficiaries', fill(d.beneficiaries, { name, beneficiaries: ben }), [defaultRef(), ...pRef]);
   draft('work.outcomes', SUGGESTED_OUTCOMES);
   draft('finance.forecastStart', DEFAULT_START);
   draft('finance.forecastEnd', DEFAULT_END);
@@ -68,9 +80,9 @@ export function buildSuggestions(profile) {
 }
 
 // The answer set for a brand-new draft. Fixed fields are confirmed; everything else waits for the manager.
-export function initialAnswers(profile, nowIso) {
+export function initialAnswers(profile, nowIso, defaults = null) {
   const answers = {};
-  for (const [id, s] of Object.entries(buildSuggestions(profile))) {
+  for (const [id, s] of Object.entries(buildSuggestions(profile, defaults))) {
     const fixed = !!(fieldById(id) && fieldById(id).fixed);
     answers[id] = { value: s.value, origin: s.origin, sourceRefs: s.sourceRefs, confirmedAt: fixed ? nowIso : null, editedAt: null };
   }

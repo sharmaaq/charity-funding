@@ -5,13 +5,16 @@ import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createServer } from '../../server.js';
+import { readConfig } from '../../server/config.js';
+import { createMemoryStore } from '../../server/store/memory.js';
+import { seedAll } from '../../server/seed/index.js';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 // http.request keeps the path exactly as given (fetch would normalise dot segments).
-function get(port, rawPath) {
+function get(port, rawPath, headers = {}) {
   return new Promise((resolve, reject) => {
-    const req = http.request({ host: '127.0.0.1', port, path: rawPath, method: 'GET' }, (res) => {
+    const req = http.request({ host: '127.0.0.1', port, path: rawPath, method: 'GET', headers }, (res) => {
       const chunks = [];
       res.on('data', (c) => chunks.push(c));
       res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString('utf8') }));
@@ -24,7 +27,11 @@ function get(port, rawPath) {
 let server;
 let port;
 test.before(async () => {
-  server = createServer();
+  const store = createMemoryStore();
+  await seedAll(store);
+  await store.updateCharity('your-place', { members: ['member@test.example'] });
+  const config = readConfig({ DEV_USER_EMAIL: 'member@test.example' });
+  server = createServer({ config, store });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   port = server.address().port;
 });
@@ -43,7 +50,7 @@ test('assets are served with correct content types', async () => {
   const css = await get(port, '/styles.css');
   assert.equal(css.status, 200);
   assert.match(css.headers['content-type'], /^text\/css/);
-  for (const f of ['app.js', 'state.js', 'fixtures.js']) {
+  for (const f of ['app.js', 'state.js', 'remote/session.js']) {
     const js = await get(port, `/js/${f}`);
     assert.equal(js.status, 200, f);
     assert.match(js.headers['content-type'], /^text\/javascript/);
@@ -82,9 +89,13 @@ test('unknown paths and directories return 404', async () => {
   }
 });
 
+test('the seed data files are not served to the browser', async () => {
+  for (const p of ['/js/fixtures.js', '/server/seed/index.js', '/seed/your-place-grants.js']) assert.equal((await get(port, p)).status, 404, p);
+});
+
 test('honours PORT and binds to 0.0.0.0', async () => {
   const testPort = 8097;
-  const child = spawn(process.execPath, ['server.js'], { cwd: root, env: { ...process.env, PORT: String(testPort) } });
+  const child = spawn(process.execPath, ['server.js'], { cwd: root, env: { ...process.env, PORT: String(testPort), DEV_USER_EMAIL: 'dev@test.example', K_SERVICE: '' } });
   try {
     const out = await new Promise((resolve, reject) => {
       let buf = '';
@@ -104,6 +115,15 @@ test('honours PORT and binds to 0.0.0.0', async () => {
   } finally {
     child.kill();
   }
+});
+
+test('the server refuses to start on Cloud Run with a development identity', async () => {
+  const child = spawn(process.execPath, ['server.js'], { cwd: root, env: { ...process.env, PORT: '8096', K_SERVICE: 'charity-funding', DEV_USER_EMAIL: 'dev@test.example', DATA_BUCKET: 'x' } });
+  let stderr = '';
+  child.stderr.on('data', (d) => { stderr += d; });
+  const code = await new Promise((resolve) => child.on('exit', resolve));
+  assert.notEqual(code, 0);
+  assert.match(stderr, /DEV_USER_EMAIL must not be set on Cloud Run/);
 });
 
 test('a bundled font is served as font/woff2 and a licence as text/plain', async () => {

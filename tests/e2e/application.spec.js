@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './base.js';
+import { readStore, orgApi } from './package-helpers.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -23,36 +24,16 @@ async function planG001(page) {
 }
 
 async function gotoSection(page, label) {
+  await expect(page.getByTestId('section-title')).toBeVisible(); // the page has rendered, so the select-or-nav choice below is reliable
   const select = page.getByTestId('section-select');
   if (await select.isVisible()) await select.selectOption({ label });
   else await page.locator('.app-nav .nav-item', { hasText: label }).first().click();
   await expect(page.getByTestId('section-title')).toHaveText(label);
 }
 
-async function readApps(page) {
-  return page.evaluate(() => new Promise((resolve, reject) => {
-    const r = indexedDB.open('charity-funding.organisation');
-    r.onerror = () => reject(r.error);
-    r.onsuccess = () => {
-      const db = r.result;
-      const q = db.transaction('applications').objectStore('applications').getAll();
-      q.onsuccess = () => { db.close(); resolve(q.result); };
-    };
-  }));
-}
+const readApps = (page) => readStore(page, 'applications');
 
-async function withOrgRepo(page, fn, arg) {
-  return page.evaluate(async ({ src, arg }) => {
-    const { openDb } = await import('/js/org/db.js');
-    const { createRepository } = await import('/js/org/repository.js');
-    const db = await openDb();
-    try {
-      const repo = createRepository(db, {});
-      // eslint-disable-next-line no-new-func
-      return await new Function('repo', 'arg', `return (${src})(repo, arg)`)(repo, arg);
-    } finally { db.close(); }
-  }, { src: fn.toString(), arg });
-}
+const org = (page) => orgApi(page);
 
 async function expectNoOverflow(page) {
   const { sw, cw } = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));
@@ -143,7 +124,7 @@ test('prefill shows source chips, and the drawer shows origin, keeps focus and c
   const chip = field(page, 'org.overview').locator('.source-chip');
   await expect(chip).toHaveText('Source: organisation profile');
   await expect(statusOf(page, 'org.overview')).toContainText('Needs review');
-  await expect(ctl(page, 'org.overview')).toHaveValue(/YOR Plc is a demo charity/);
+  await expect(ctl(page, 'org.overview')).toHaveValue(/Your Place is a demo charity/);
   await chip.click();
   const drawer = page.getByTestId('source-drawer');
   await expect(drawer).toBeVisible();
@@ -180,10 +161,8 @@ test('manager edits win over suggestions; profile changes flag stale sources and
   await expect(page.getByTestId('save-state')).toHaveText(/Saved at/);
   await expect.poll(async () => (await readApps(page))[0].answers['org.overview'].origin).toBe('manager');
   // change the organisation profile elsewhere
-  await withOrgRepo(page, async (repo) => {
-    const p = await repo.getProfile();
-    await repo.updateProfile({ ...p, overview: 'A completely new profile overview that is long enough to be useful here. '.repeat(2), geography: 'East London' });
-  });
+  const p = await org(page).getProfile();
+  await org(page).updateProfile({ ...p, overview: 'A completely new profile overview that is long enough to be useful here. '.repeat(2), geography: 'East London' });
   await page.reload();
   // the edited answer is untouched on render
   await expect(ctl(page, 'org.overview')).toHaveValue(/Our own wording/);
@@ -356,10 +335,7 @@ test('stored documents: only PDF or DOCX can be chosen as accounts, nothing is c
   await expect(ctl(page, 'evidence.accountsId')).toHaveValue('');
   await expect(ctl(page, 'evidence.accountsId').locator('option:disabled').first()).toContainText('not a PDF or DOCX');
   await expect(field(page, 'evidence.accountsId')).toContainText('No PDF or DOCX document is stored yet');
-  await withOrgRepo(page, async (repo) => {
-    const bytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x34, 10, 1, 2, 3, 4, 5, 6, 7]);
-    await repo.uploadDocument(new File([bytes], 'accounts-test.pdf', { type: 'application/pdf' }), { category: 'financial', title: 'Test accounts', period: 'Year ended 31 March 2026' });
-  });
+  await org(page).uploadDocument('accounts-test.pdf', 'application/pdf', new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x34, 10, 1, 2, 3, 4, 5, 6, 7]), { category: 'financial', title: 'Test accounts', period: 'Year ended 31 March 2026' });
   await page.reload();
   await gotoSection(page, 'Documents');
   await expect(ctl(page, 'evidence.accountsId')).toHaveValue(''); // suggested, never silently selected
@@ -371,7 +347,7 @@ test('stored documents: only PDF or DOCX can be chosen as accounts, nothing is c
   await expect(page.getByTestId('source-drawer')).toContainText('Stored document: Test accounts');
   await expect(page.getByTestId('source-drawer')).toContainText('Period: Year ended 31 March 2026');
   // delete the document: the answer is kept, flagged as source removed
-  await withOrgRepo(page, async (repo) => { const [d] = (await repo.listDocuments()).filter((x) => x.filename === 'accounts-test.pdf'); await repo.deleteDocument(d.id); });
+  { const [d] = (await org(page).listDocuments()).filter((x) => x.filename === 'accounts-test.pdf'); await org(page).deleteDocument(d.id); }
   await page.reload();
   await gotoSection(page, 'Documents');
   await expect(field(page, 'evidence.accountsId').locator('.source-chip')).toHaveClass(/stale/);

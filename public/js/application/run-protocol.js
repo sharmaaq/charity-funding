@@ -38,7 +38,7 @@ export function buildManifest(snapshot, attemptId) {
     draftRevision: snapshot.revision,
     attemptId,
     mode: 'demo',
-    syntheticApplicant: true, // the demo applicant is always the synthetic YOR Plc identity
+    syntheticApplicant: true, // the demo applicant is always the synthetic Your Place identity
     answers: nest(snapshot.answers),
     attachments: snapshot.attachments.map((a) => ({ role: a.role, filename: a.filename, mimeType: a.mime, sizeBytes: a.size, sha256: a.sha256, synthetic: !!a.synthetic })),
     payloadHash: snapshot.payloadHash,
