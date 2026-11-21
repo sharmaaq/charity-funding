@@ -52,6 +52,10 @@ Not tested: the Firestore and Cloud Storage implementations against a real datab
 
 Google Cloud: G1 (APIs enabled), G2 (Firestore default database, europe-west1, Native), G3 (bucket charity-funding-514818-data, uniform access, public access prevention) and G4 (service account charity-funding-run with datastore.user and aiplatform.user on the project and storage.objectAdmin on the bucket only) done. G5 needs the console (the IAP OAuth Admin API is shut down). G6, G7 and the deploy follow G5.
 
+## Go-live 2026-11-21 (Claude)
+
+G5 done by the user, G6 done by Claude (details in docs/status.md). Traffic: 100 percent to charity-funding-00011-veh. Unauthenticated requests redirect to Google sign-in. Signed-in checks are pending with the user.
+
 ## Handoff
 
 Plan approved 2026-11-20. Phase 1 handed to the implementing model.

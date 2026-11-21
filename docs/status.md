@@ -1,5 +1,12 @@
 # Current status and handoff
 
+## Latest: S4-001 Phases 1 and 2 live behind Google sign-in — 2026-11-21 (Claude)
+
+- G5: the user created the OAuth web client in charity-funding-514818 (an earlier client made in another project was not used). G6: IAP enabled on the Cloud Run service with that client (secret set in IAP settings only, not in the repo); allAuthenticatedUsers granted roles/iap.httpsResourceAccessor; allUsers removed from roles/run.invoker; the IAP service agent holds roles/run.invoker. cloudresourcemanager.googleapis.com was also enabled, because gcloud needed it to set the IAP policy.
+- Real data: the Your Place seed was re-run and added the Garfield Weston funder page; nothing else changed.
+- Traffic: 100 percent to charity-funding-00011-veh (tag phase2, includes Phase 1). Older revisions kept with 0 percent (00007-tof, 00009-sid).
+- Live check by Claude: unauthenticated requests to both service URLs and the phase2 tag URL return 302 to accounts.google.com with the charity-funding client ID. Signed-in behaviour not yet checked; the user checks it.
+
 ## Latest: S4-001 Phase 2 follow-up, funder application page choice — 2026-11-21 (implementing model)
 
 - The review screen now offers a labelled choice of funder application pages (per-charity data, https only, link only, defaults to the grant funder) instead of the hard-coded Garfield Weston link. One entry seeded (Garfield Weston). Local tests: unit 126 (1 skipped), integration 80, Playwright 306, all passing. Real Firestore needs the seed re-run to gain the entry. Details in the [ticket](../project/sprint-4/tickets/S4-001-multi-charity-platform/ticket.md).
@@ -42,7 +49,8 @@
 - Documentation task only; application code unchanged, application tests not run. All local Markdown links resolved across ten new/updated documents; REQ-022 through REQ-028 and both expanded baselines checked; git diff --check passed. Other work appeared concurrently in S1-002/S2-001 ticket records and a document-store mockup; preserved untouched. No commit/push/deployment performed by ChatGPT in this task.
 
 - S3-001 Phase A implemented 2026-11-16 (Claude implementing model): G-001 application workspace, prefill with provenance, worked synthetic example, review screen, schema 2 database upgrade. Local tests pass (unit 81, Playwright 234). Phases B and C (PDF and package; API, test portal, runner, receipts) not started. Deployed and verified live: revision charity-funding-00005-4zf, live Playwright suite 234 of 234 pass.
-- S3-001 Phase B implemented 2026-11-16 (implementing model, finished by Claude): generated proposal PDF, canonical package hash, frozen submission snapshot with attachment copies, replacement proposal, confirmations, disabled run control. pdf-lib vendored. Local tests pass (unit 91, Playwright 266). Deployed and verified live: revision charity-funding-00006-tlm; live Playwright 263 of 266 on the first run, the remaining test passing after a test-only origin fix. Phase C (API, test portal, runner, receipts, Tracking) not started; the real connector remains unavailable.
+
+- S3-001 Phase B implemented 2026-11-16 (implementing model, finished by Claude): generated proposal PDF, canonical package hash, frozen submission snapshot with attachment copies, replacement proposal, confirmations, disabled run control. pdf-lib vendored. Local tests pass (unit 91, Playwright 266). Deployed and verified live: revision charity-funding-00006-tlm; live Playwright 263 of 266 on the first run, the remaining test passing after a test-only origin fix. Phase C (API, test portal, runner, receipts, Tracking) not started; the real connector remains unavailable.
 - S3-001 Phase C implemented 2026-11-16 (Claude): same-origin demo-run API with streaming validation, loopback test portal, real headless Chromium runner, NDJSON progress, attempt lock, DEMO receipts in Tracking, disabled live connector with readiness report and empty portal-map template. Local tests pass (unit 97, integration 49, Playwright 283). Deployed: revision charity-funding-00007-tof (1 GiB), proved as a no-traffic candidate (Playwright 283 of 283, real runs 3 to 4 seconds), then given 100 percent of traffic; live walk-through suites 35 of 35. The real Garfield Weston connector remains unavailable; nothing contacts the funder.
 
 Last updated: 2026-11-15 (Claude: S0-003 reviewed and planned; ChatGPT's S1-001 notes preserved).
