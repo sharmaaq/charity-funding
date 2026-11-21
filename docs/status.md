@@ -1,6 +1,11 @@
 # Current status and handoff
 
-## Latest: S4-001 Phase 1 built and tested, awaiting Google Cloud step G5 — 2026-11-20 (implementing model)
+## Latest: S4-001 Phase 1 candidate deployed (no traffic) — 2026-11-21 (implementing model)
+
+- Phase 1 is deployed as no-traffic revision charity-funding-00009-sid, tag phase1 (https://phase1---charity-funding-4zw3jha7va-ew.a.run.app), with ADMIN_EMAILS and DATA_BUCKET set. Your Place and Our Time are seeded in the real Firestore and bucket and the admin is a member of both. Unauthenticated requests get 401 and no content. The live site is still revision 00007 at 100 percent.
+- Waiting on G5 (OAuth client, needs the user in the console), then G6 (IAP and invoker changes) before Phase 1 can take traffic. Details in the [ticket](../project/sprint-4/tickets/S4-001-multi-charity-platform/ticket.md).
+
+## Earlier: S4-001 Phase 1 built and tested, awaiting Google Cloud step G5 — 2026-11-20 (implementing model)
 
 - Phase 1 (sign-in identity, charity tenancy, server-side storage, switcher, rename to Your Place) is built. Local tests all pass: unit 117 pass and 1 skipped, integration 75, Playwright 291 of 291 (phone-360, phone-390, desktop-1280).
 - Browser IndexedDB and localStorage tests were rewritten to check server state or removed; the list and reasons are in the [ticket](../project/sprint-4/tickets/S4-001-multi-charity-platform/ticket.md). Two real bugs found and fixed by the tests.

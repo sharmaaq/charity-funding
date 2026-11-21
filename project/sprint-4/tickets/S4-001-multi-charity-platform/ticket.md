@@ -55,3 +55,10 @@ Google Cloud: G1 (APIs enabled), G2 (Firestore default database, europe-west1, N
 ## Handoff
 
 Plan approved 2026-11-20. Phase 1 handed to the implementing model.
+
+### Phase 1 candidate deployment (implementing model, 2026-11-21)
+
+- Deployed from a clean worktree of 71d4f36 as no-traffic revision charity-funding-00009-sid, tag `phase1` (Cloud Run tags need at least 3 characters, so `p1` was refused; the first attempt failed at validation and created nothing). Tag URL: https://phase1---charity-funding-4zw3jha7va-ew.a.run.app. Service account charity-funding-run, 1 GiB, env vars ADMIN_EMAILS (the user's gcloud account) and DATA_BUCKET=charity-funding-514818-data. GEMINI_MODEL and GEMINI_LOCATION left unset (not read until Phase 3).
+- Seeded the real Firestore and bucket with `npm run seed -- --charity all` (Your Place created and seeded; Our Time created). The admin account was added as the only member of both through the store (the admin API needs the IAP identity). No application default credentials were needed; an access token from gcloud was used.
+- Unauthenticated check of the tag URL (no IAP header): `/` 401 "Sign in required"; `/api/me`, `/api/charities/your-place/profile`, `/api/admin/charities` 401 `{"code":"UNAUTHENTICATED",...}`; `/js/app.js` 401. No app content or charity data served.
+- Traffic: 100 percent still on charity-funding-00007-tof (main URL returns 200, still the old YOR Plc page). Waiting on G5 (OAuth client) and G6 (IAP, invoker changes) before Phase 1 takes traffic. Signed-in behaviour and Firestore/Storage runtime access are not yet verified on the revision.
