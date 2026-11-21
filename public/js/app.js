@@ -523,6 +523,7 @@ const organisation = createOrganisation({
 const application = createApplication({
   services,
   applicationDefaults: APPLICATION_DEFAULTS,
+  funderPages: workspace.funderPages || [],
   mount: mainEl,
   titleEl,
   now,
@@ -534,7 +535,7 @@ const application = createApplication({
   getGrant: (id) => {
     const g = grantById(id);
     const e = state.grants[id];
-    return g && e ? { id, name: g.name, funder: g.funder, workflow: e.workflow } : null;
+    return g && e ? { id, name: g.name, funder: g.funder, funderPageId: g.funderPageId || null, workflow: e.workflow } : null;
   },
 });
 

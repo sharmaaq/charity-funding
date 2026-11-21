@@ -1,6 +1,7 @@
 // Opportunities (the grant cards), the manager's decision per opportunity and the discovery settings, per charity.
 // Decisions are separate records so two people deciding on different grants never overwrite each other.
 import { ServiceError } from '../errors.js';
+import { usableFunderPages } from '../../public/js/funder-pages.js';
 import { WORKFLOWS } from '../../public/js/state.js';
 
 const BRIEF_MAX = 10000;
@@ -11,14 +12,15 @@ export function createWorkspaceService(store, options = {}) {
   const svc = {
     // Everything the Discovery and Planning screens need in one read.
     async load(cid) {
-      const [opps, decisions, settings, appMeta] = await Promise.all([store.list(cid, 'opportunities'), store.list(cid, 'decisions'), store.get(cid, 'meta', 'discovery'), store.get(cid, 'meta', 'application')]);
+      const [opps, pages, decisions, settings, appMeta] = await Promise.all([store.list(cid, 'opportunities'), store.list(cid, 'funderPages'), store.list(cid, 'decisions'), store.get(cid, 'meta', 'discovery'), store.get(cid, 'meta', 'application')]);
       const order = (o) => (Number.isFinite(o.order) ? o.order : 0);
       const opportunities = opps.sort((a, b) => (order(a) - order(b)) || (a.id < b.id ? -1 : 1)).map(({ order: _o, ...rest }) => rest);
       const grants = {};
       for (const o of opportunities) grants[o.id] = { workflow: 'new', override: false };
       for (const d of decisions) if (grants[d.id]) grants[d.id] = { workflow: d.workflow, override: !!d.override };
       const s = settings || {};
-      const out = { opportunities, grants, hideUnsuitable: !!s.hideUnsuitable };
+      const funderPages = usableFunderPages(pages.sort((a, b) => (order(a) - order(b)) || (a.id < b.id ? -1 : 1)));
+      const out = { opportunities, funderPages, grants, hideUnsuitable: !!s.hideUnsuitable };
       if (typeof s.brief === 'string') out.brief = s.brief;
       if (appMeta && appMeta.defaults) out.applicationDefaults = appMeta.defaults;
       if (typeof s.freshId === 'string' && grants[s.freshId]) out.freshId = s.freshId;

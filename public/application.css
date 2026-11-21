@@ -223,3 +223,7 @@
 .attempt-list li { margin: 6px 0; }
 .demo-badge { background: var(--lilac); color: var(--purple); }
 @media (prefers-reduced-motion: reduce) { .milestones li { transition: none; } }
+
+.funder-choice { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin: 12px 0; max-width: 760px; }
+.funder-choice label { font-weight: 800; color: var(--purple); }
+.funder-choice select { width: 100%; font: inherit; font-weight: 600; min-height: 48px; padding: 8px 12px; border: 2px solid var(--neutral-border); border-radius: 2px; background: #fff; color: var(--ink); }

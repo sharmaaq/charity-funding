@@ -50,7 +50,8 @@ test('worked example: package, hash, confirmations, disabled run control, frozen
   await expect(page.getByTestId('automation-unavailable')).toContainText('Keep this page open');
   await expect(panel).not.toContainText(/\bSubmit\b/);
   await expect(panel.locator('summary', { hasText: 'Live submission' })).toBeVisible();
-  const panelText = await panel.evaluate((el) => el.textContent);
+  // The funder application page choice names the funder by design; the rest of the panel must not.
+  const panelText = await panel.evaluate((el) => { const c = el.cloneNode(true); c.querySelector('[data-testid=funder-choice]')?.remove(); return c.textContent; });
   expect(panelText).not.toMatch(/Garfield|Weston|Blackbaud/);
 
   // nothing is saved before both boxes are ticked

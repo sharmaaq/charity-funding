@@ -133,7 +133,7 @@ async function ensureReplacement(cid, user, f) {
 
 async function dump(cid) {
   const out = {};
-  for (const c of ['meta', 'opportunities', 'decisions', 'bids', 'documents', 'applications', 'submissionSnapshots', 'submissionFiles', 'submissionAttempts', 'submissionReceipts']) out[c] = await h.store.list(cid, c);
+  for (const c of ['meta', 'opportunities', 'decisions', 'bids', 'documents', 'applications', 'submissionSnapshots', 'submissionFiles', 'submissionAttempts', 'submissionReceipts', 'funderPages']) out[c] = await h.store.list(cid, c);
   return JSON.stringify(out);
 }
 

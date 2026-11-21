@@ -1,5 +1,9 @@
 # Current status and handoff
 
+## Latest: S4-001 Phase 2 follow-up, funder application page choice — 2026-11-21 (implementing model)
+
+- The review screen now offers a labelled choice of funder application pages (per-charity data, https only, link only, defaults to the grant funder) instead of the hard-coded Garfield Weston link. One entry seeded (Garfield Weston). Local tests: unit 126 (1 skipped), integration 80, Playwright 306, all passing. Real Firestore needs the seed re-run to gain the entry. Details in the [ticket](../project/sprint-4/tickets/S4-001-multi-charity-platform/ticket.md).
+
 ## Latest: S4-001 Phase 2 (draft-only boundary) built — 2026-11-21 (implementing model)
 
 - The runner saves a draft on the test portal and never submits; live submit() throws FINAL_SUBMISSION_DISABLED; review screen offers the package download and the funder page. Local tests: unit 120 (1 skipped), integration 80, Playwright 294 (291 passed on the first full run, the 3 failures were one stale test string, fixed and re-run 24 of 24 for that file). Details in the [ticket](../project/sprint-4/tickets/S4-001-multi-charity-platform/ticket.md).

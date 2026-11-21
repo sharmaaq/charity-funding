@@ -16,7 +16,7 @@
 //
 // Charity records: { id, name, website, theme, notice, members: [lower-cased email], createdAt, createdBy }.
 export const COLLECTIONS = Object.freeze([
-  'meta', 'opportunities', 'decisions', 'bids', 'documents', 'applications',
+  'meta', 'opportunities', 'funderPages', 'decisions', 'bids', 'documents', 'applications',
   'submissionSnapshots', 'submissionFiles', 'submissionAttempts', 'submissionReceipts', 'audit',
 ]);
 export const FILE_KINDS = Object.freeze(['files', 'submission-files']);

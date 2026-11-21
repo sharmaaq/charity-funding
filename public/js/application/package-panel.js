@@ -20,6 +20,7 @@ import { ProposalError } from './proposal.js';
 import { ROLE_LABEL } from './transfer.js';
 import { ORIGIN_CHIP, SOURCE_KIND } from './labels.js';
 import { buildZip } from './zip.js';
+import { defaultFunderPage, funderPageText, usableFunderPages } from '../funder-pages.js';
 
 export const REVIEW_CHECK_LABEL = 'I have reviewed these demo answers and documents';
 export const TRANSFER_CHECK_LABEL = 'Save a demo draft on the test portal using this package';
@@ -28,17 +29,39 @@ export const AUTOMATION_UNAVAILABLE_TEXT = 'Automation unavailable. The demo run
 export const BEFORE_RUN_TEXT = 'The demo run takes up to 90 seconds. Keep this page open: closing or reloading it interrupts the run, and the result would then not be confirmed. You can move to other pages of this app while it runs.';
 export const COMPLETED_TITLE = 'Demo draft saved on the test portal — not submitted, nothing sent to Garfield Weston';
 export const RUN_LABEL = 'Save demo draft';
-export const FUNDER_PAGE_URL = 'https://garfieldweston.org/for-grant-applicants/how-to-apply/';
 export const FUNDER_PAGE_LABEL = "Open the funder's application page";
 export const DOWNLOAD_PACKAGE_LABEL = 'Download application package';
 
 const shortHash = (s) => `${s.slice(0, 12)}…${s.slice(-6)}`;
+
+export function buildFunderChoice(allPages, funderPageId) {
+  const pages = usableFunderPages(allPages);
+  const el = h('div', { class: 'funder-choice', 'data-testid': 'funder-choice' });
+  if (pages.length === 0) {
+    el.append(h('p', { class: 'sub', 'data-testid': 'funder-none', text: 'No funder application pages are set up for this charity.' }));
+    return { el };
+  }
+  const initial = defaultFunderPage(pages, funderPageId);
+  const select = h('select', { id: 'funder-page-select', 'data-testid': 'funder-page-select' },
+    pages.map((p) => h('option', { value: p.id, text: funderPageText(p) })));
+  select.value = initial.id;
+  const link = h('a', { class: 'btn', 'data-testid': 'open-funder-page', target: '_blank', rel: 'noopener noreferrer', text: FUNDER_PAGE_LABEL });
+  const apply = () => { const p = pages.find((x) => x.id === select.value) || initial; link.href = p.url; };
+  select.addEventListener('change', apply);
+  apply();
+  el.append(h('label', { for: 'funder-page-select', text: 'Funder application page' }), select, link);
+  return { el };
+}
 
 export function buildPackagePanel(sess, api) {
   const root = h('section', { class: 'review-block review-next', id: 'review-next', 'data-testid': 'review-next', 'aria-labelledby': 'rv-next' },
     h('h3', { id: 'rv-next', text: 'Package and draft demo' }));
   const body = h('div', { 'data-testid': 'package-body' });
   root.append(body);
+
+  // The funder application pages of this charity: a labelled choice (defaulting to this grant's funder) and a link to the
+  // chosen page. Links only; nothing is sent to a funder. Built once so the choice survives a re-render.
+  const funderChoice = buildFunderChoice(sess.funderPages, sess.funderPageId);
 
   const state = { token: 0, phase: 'idle', prep: null, blocked: null, reviewed: false, transfer: false, snapshot: null, created: null, error: null, replacementNote: null, caps: null, receipt: null, lastAttempt: null, runError: null, starting: false };
   let checks = null; // { reviewed, transfer, status, runBtn, note } for the current render
@@ -368,8 +391,8 @@ export function buildPackagePanel(sess, api) {
           const a = prep.attachments.find((x) => x.role === 'proposal');
           downloadBlob(new Blob([a.bytes], { type: a.mime }), a.filename);
         } }),
-        h('button', { type: 'button', class: 'btn', 'data-testid': 'download-package', text: DOWNLOAD_PACKAGE_LABEL, onclick: () => downloadPackage(prep) }),
-        h('a', { class: 'btn', 'data-testid': 'open-funder-page', href: FUNDER_PAGE_URL, target: '_blank', rel: 'noopener noreferrer', text: FUNDER_PAGE_LABEL })));
+        h('button', { type: 'button', class: 'btn', 'data-testid': 'download-package', text: DOWNLOAD_PACKAGE_LABEL, onclick: () => downloadPackage(prep) })));
+      parts.push(funderChoice.el);
       parts.push(h('p', { class: 'sub', 'data-testid': 'manual-submit-note', text: 'This app never submits an application. To apply, download the package and submit it yourself on the funder\'s own page. The app does not record or imply that anything was submitted.' }));
       parts.push(notesView(sourceNotes(sess.answers)));
     }

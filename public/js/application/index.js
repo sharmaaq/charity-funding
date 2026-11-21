@@ -35,7 +35,7 @@ export function stageOf(counts) {
 }
 
 // getGrant(id) -> { id, name, funder, workflow } | null   (provided by app.js; the controller never changes triage state)
-export function createApplication({ mount, titleEl, now, announce, navigate, getGrant, services, applicationDefaults = null }) {
+export function createApplication({ mount, titleEl, now, announce, navigate, getGrant, services, applicationDefaults = null, funderPages = [] }) {
   let token = 0;
   let sess = null;
   let view = null; // { kind: 'workspace' | 'review', ui? }
@@ -398,6 +398,8 @@ export function createApplication({ mount, titleEl, now, announce, navigate, get
     }
     if (route.page === 'review') {
       view = { kind: 'review' };
+      sess.funderPages = funderPages;
+      sess.funderPageId = grant.funderPageId || null;
       put(buildReview(sess, api), focus);
       return;
     }

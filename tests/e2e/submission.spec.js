@@ -132,6 +132,7 @@ test('review offers the package download and the funder page, and the app never 
   const funder = page.getByTestId('open-funder-page');
   await expect(funder).toHaveText("Open the funder's application page");
   await expect(funder).toHaveAttribute('href', /^https:\/\/garfieldweston\.org\//);
+  await expect(page.getByLabel('Funder application page')).toHaveValue('garfield-weston');
   await expect(funder).toHaveAttribute('target', '_blank');
   await expect(funder).toHaveAttribute('rel', /noopener/);
   const [dl] = await Promise.all([page.waitForEvent('download'), page.getByTestId('download-package').click()]);

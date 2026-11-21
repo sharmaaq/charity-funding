@@ -12,6 +12,7 @@ import { ServiceError } from './errors.js';
 import { isEmail, normaliseEmail } from './config.js';
 import { CHARITY_ID_RE, COLLECTIONS, RECORD_ID_RE } from './store/contract.js';
 import { notFoundBody, parseJsonField, readJson, readUpload, sameOrigin, sendError, sendFile, sendJson } from './http.js';
+import { validateFunderPage } from '../public/js/funder-pages.js';
 import { createOrgService } from './services/org.js';
 import { createApplicationService } from './services/applications.js';
 import { createWorkspaceService } from './services/workspace.js';
@@ -248,6 +249,23 @@ export function createRoutes({ store, config, now = () => new Date(), limits = {
       await seedAll(store, { now });
       const members = { ...devDefaults.members, ...(body.members || {}) };
       for (const [cid, list] of Object.entries(members)) await store.updateCharity(cid, { members: list.map(normaliseEmail) });
+      // Test fixtures: extra funder pages { cid: [{ id, funder, label, url }] } and grant links { cid: { oid: funderPageId } }.
+      // Validated like seed data; only this dev-only route can add them, never the production seed.
+      for (const [cid, list] of Object.entries(body.funderPages || {})) {
+        if (!CHARITY_ID_RE.test(cid) || !Array.isArray(list)) throw new ServiceError('invalid', 'funderPages must map a charity ID to a list.');
+        const existing = (await store.list(cid, 'funderPages')).length;
+        for (const [i, input] of list.entries()) {
+          const v = validateFunderPage(input);
+          if (!v.ok) throw new ServiceError('invalid', Object.values(v.errors).join(' '));
+          await store.tx(cid, async (tx) => { tx.set('funderPages', v.page.id, { ...v.page, order: existing + i }); });
+        }
+      }
+      for (const [cid, links] of Object.entries(body.grantFunderPages || {})) {
+        for (const [oid, pid] of Object.entries(links)) {
+          const o = await store.get(cid, 'opportunities', oid);
+          if (o) await store.tx(cid, async (tx) => { tx.set('opportunities', oid, { ...o, funderPageId: pid }); });
+        }
+      }
       sendJson(res, 200, { ok: true });
     });
   }

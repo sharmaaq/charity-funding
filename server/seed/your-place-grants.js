@@ -9,6 +9,11 @@ export const PROFILE = {
     'Demo charity: a London homelessness housing and support charity with reported annual income of about £7.1m.',
 };
 
+// The funder application pages offered on the review screen. Links only; the app never contacts a funder.
+export const FUNDER_PAGES = [
+  { id: 'garfield-weston', funder: 'Garfield Weston Foundation', label: 'How to apply', url: 'https://garfieldweston.org/for-grant-applicants/how-to-apply/' },
+];
+
 export const SNAPSHOT_LABEL = 'Demo discovery - 15 November 2026 snapshot';
 
 export const FIXTURES = [
@@ -16,6 +21,7 @@ export const FIXTURES = [
     id: 'G-001',
     name: 'Regular Grants',
     funder: 'Garfield Weston Foundation',
+    funderPageId: 'garfield-weston',
     amount: 'Under £100,000',
     timing: 'Rolling (original snapshot)',
     summary: "Core, project or capital support for charities through the foundation's Regular Grants route.",

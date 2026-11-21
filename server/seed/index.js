@@ -6,7 +6,7 @@
 import { randomUUID } from 'node:crypto';
 import { ServiceError } from '../errors.js';
 import { SEED_BIDS, SEED_DOCUMENTS, SEED_PROFILE } from './your-place-org.js';
-import { FIXTURES } from './your-place-grants.js';
+import { FIXTURES, FUNDER_PAGES } from './your-place-grants.js';
 import { YOUR_PLACE_BRIEF } from './your-place-brief.js';
 import { YOUR_PLACE_APPLICATION_DEFAULTS } from './your-place-application.js';
 
@@ -56,11 +56,25 @@ export async function ensureCharity(store, def, { now = () => new Date(), create
   }
 }
 
+// A charity seeded before funder pages existed: add the entries and the grant links that are missing. Never overwrites an
+// entry or a link that is already there.
+async function backfillFunderPages(store, cid) {
+  let added = 0;
+  await store.tx(cid, async (tx) => {
+    const pages = await Promise.all(FUNDER_PAGES.map((p) => tx.get('funderPages', p.id)));
+    const linked = FIXTURES.filter((g) => g.funderPageId);
+    const opps = await Promise.all(linked.map((g) => tx.get('opportunities', g.id)));
+    FUNDER_PAGES.forEach((p, i) => { if (!pages[i]) { tx.set('funderPages', p.id, { ...p, order: i }); added++; } });
+    linked.forEach((g, i) => { if (opps[i] && !opps[i].funderPageId) tx.set('opportunities', g.id, { ...opps[i], funderPageId: g.funderPageId }); });
+  });
+  return { funderPagesAdded: added };
+}
+
 async function seedYourPlace(store, now) {
   const cid = 'your-place';
   const stamp = (offset = 0) => new Date(now().getTime() - offset).toISOString();
   const marker = await store.get(cid, 'meta', SEED_MARKER_KEY);
-  if (marker) return { seeded: false };
+  if (marker) return { seeded: false, ...(await backfillFunderPages(store, cid)) };
   const files = [];
   const profile = { key: 'profile', name: 'Your Place', ...SEED_PROFILE, synthetic: true, updatedAt: stamp() };
   const bids = [];
@@ -101,6 +115,7 @@ async function seedYourPlace(store, now) {
       tx.set('opportunities', g.id, { ...g, order: i });
       tx.set('decisions', g.id, { id: g.id, workflow: 'new', override: false, updatedAt: stamp() });
     });
+    FUNDER_PAGES.forEach((p, i) => tx.set('funderPages', p.id, { ...p, order: i }));
     tx.set('meta', 'discovery', { key: 'discovery', brief: YOUR_PLACE_BRIEF, hideUnsuitable: false, updatedAt: stamp() });
     tx.set('meta', 'application', { key: 'application', defaults: { ...YOUR_PLACE_APPLICATION_DEFAULTS }, updatedAt: stamp() });
     tx.set('meta', SEED_MARKER_KEY, { key: SEED_MARKER_KEY, completedAt: stamp() });
