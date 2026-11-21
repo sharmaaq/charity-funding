@@ -74,7 +74,7 @@ export async function startDemoRun({ apps, snapshot, retryId = null, nowIso }) {
   const run = {
     snapshotId: snapshot.id, applicationId: snapshot.applicationId, snapshot, attempt, phase: 'running',
     steps: Object.fromEntries(MILESTONES.map((m) => [m.step, { status: 'pending', at: null }])),
-    events: [], receipt: null, error: null, submitStarted: false, cancelRequested: false,
+    events: [], receipt: null, error: null, saveStarted: false, cancelRequested: false,
     cancel() { run.cancelRequested = true; controller.abort(); },
     retrySave: () => saveFinal(apps, run),
   };
@@ -96,7 +96,7 @@ export async function startDemoRun({ apps, snapshot, retryId = null, nowIso }) {
 function stepUpdate(run, e) {
   if (e.type !== 'step' || !run.steps[e.step]) return;
   run.steps[e.step] = { status: e.status === 'complete' ? 'complete' : 'current', at: e.at };
-  if (e.step === 'submit' && e.status === 'started') run.submitStarted = true;
+  if (e.step === 'save-draft' && e.status === 'started') run.saveStarted = true;
 }
 
 async function execute(apps, run, controller, nowIso) {
@@ -143,14 +143,14 @@ async function execute(apps, run, controller, nowIso) {
       }
       terminal = reader.end();
     } catch (e) {
-      const before = !run.submitStarted;
-      if (run.cancelRequested && before) outcome = { state: 'cancelled', error: { code: 'CANCELLED', message: 'You stopped the demo run before it reached the submit step. Nothing was submitted to the demo portal.' } };
+      const before = !run.saveStarted;
+      if (run.cancelRequested && before) outcome = { state: 'cancelled', error: { code: 'CANCELLED', message: 'You stopped the demo run before the draft was saved. Nothing was saved on the demo portal, and nothing is ever submitted.' } };
       else outcome = { state: 'interrupted_unknown', error: { code: e instanceof StreamError ? 'STREAM_INVALID' : 'INTERRUPTED', message: e instanceof StreamError ? `${e.message} The result is not confirmed.` : 'The connection was lost before the run finished, so the result is not confirmed. You can retry deliberately.' } };
       return;
     }
     if (!terminal) { outcome = { state: 'interrupted_unknown', error: { code: 'NO_RESULT', message: 'The demo runner stopped without a result, so the outcome is not confirmed.' } }; return; }
     if (terminal.type === 'failed') {
-      const unknown = terminal.code === 'SUBMIT_UNCONFIRMED' || terminal.code === 'RECEIPT_MISMATCH';
+      const unknown = terminal.code === 'DRAFT_UNCONFIRMED' || terminal.code === 'DRAFT_MISMATCH';
       outcome = { state: unknown ? 'interrupted_unknown' : 'failed', error: { code: terminal.code, step: terminal.step, fieldPath: terminal.fieldPath || null, message: terminal.safeMessage, retryable: !!terminal.retryable } };
       if (run.steps[terminal.step]) run.steps[terminal.step] = { status: 'failed', at: terminal.at };
       return;
@@ -163,7 +163,7 @@ async function execute(apps, run, controller, nowIso) {
     outcome = {
       state: 'demo_completed',
       receipt: {
-        id: newId(), attemptId: attempt.id, applicationId: snapshot.applicationId, snapshotId: snapshot.id, mode: 'demo',
+        id: newId(), attemptId: attempt.id, applicationId: snapshot.applicationId, snapshotId: snapshot.id, mode: 'demo', kind: 'draft',
         reference: r.reference, confirmedAt: r.confirmedAt, adapterVersion: ADAPTER_ID, payloadHash: r.payloadHash, target: TARGET,
         evidenceSummary: {
           snapshotRevision: snapshot.revision,
@@ -204,7 +204,7 @@ async function saveFinal(apps, run) {
 
 export function receiptDocument(receipt, grantTitle) {
   return JSON.stringify({
-    notice: 'DEMO receipt from the controlled test portal run by this demo. Nothing was sent to Garfield Weston. This is not an award, a decision or evidence of a real application.',
+    notice: 'DEMO draft record from the controlled test portal run by this demo. The draft was saved there only: it was not submitted and nothing was sent to Garfield Weston. This is not an award, a decision or evidence of a real application.',
     funder: 'Garfield Weston Foundation', programme: grantTitle || 'Regular Grants (core costs)',
     ...receipt,
   }, null, 2);

@@ -70,7 +70,7 @@ test('independent validation: the portal applies its own rules', async () => {
   await s.portal.close();
 });
 
-test('uploads are hashed as received, a text file is refused, and submit gives exactly one receipt per attempt', async () => {
+test('uploads are hashed as received, a text file is refused, and the portal final submit still gives exactly one receipt per attempt', async () => {
   const s = await session();
   for (const p of ['organisation', 'request', 'compliance']) assert.equal((await s.postForm(p, VALID[p])).status, 303);
   assert.equal((await upload(s, { proposal: PDF, accounts: new TextEncoder().encode('plain text') })).status, 422);
@@ -88,6 +88,30 @@ test('uploads are hashed as received, a text file is refused, and submit gives e
   const receipt = await (await fetch(`${s.base}/receipt`, { headers: { Cookie: s.cookie } })).text();
   assert.match(receipt, new RegExp(`data-receipt="payload-hash">${HASH}`));
   assert.match(receipt, /Nothing was sent to Garfield Weston/);
+  await s.portal.close();
+});
+
+test('save draft stores one draft, reads it back, never counts as a submission, and requires the right hash', async () => {
+  const s = await session();
+  for (const p of ['organisation', 'request', 'compliance']) assert.equal((await s.postForm(p, VALID[p])).status, 303);
+  assert.equal((await s.postForm('draft', { draftPayloadHash: HASH })).status, 422, 'documents are required first');
+  assert.equal((await upload(s, { proposal: PDF, accounts: PDF })).status, 303);
+  assert.equal((await s.postForm('draft', { draftPayloadHash: 'b'.repeat(64) })).status, 422, 'hash mismatch');
+  assert.equal((await fetch(`${s.base}/draft`, { headers: { Cookie: s.cookie } })).status, 404, 'no draft yet');
+  assert.equal((await s.postForm('draft', { draftPayloadHash: HASH })).status, 303);
+  const first = s.portal.state.draft;
+  assert.equal(first.reference, `DEMO-${s.attemptId}`);
+  assert.equal((await s.postForm('draft', { draftPayloadHash: HASH })).status, 303);
+  assert.equal(s.portal.state.draft, first, 'a repeated save returns the same draft');
+  assert.equal(s.portal.state.submits, 0);
+  assert.equal(s.portal.state.receipt, null);
+  const page = await (await fetch(`${s.base}/draft`, { headers: { Cookie: s.cookie } })).text();
+  assert.match(page, new RegExp(`data-draft="payload-hash">${HASH}`));
+  assert.match(page, /data-draft="state">draft-saved-demo/);
+  assert.match(page, /has not been submitted, and nothing was sent to Garfield Weston/);
+  const review = await (await fetch(`${s.base}/review`, { headers: { Cookie: s.cookie } })).text();
+  assert.match(review, /data-action="save-draft"/);
+  assert.match(review, /data-action="submit-demo"/, 'the final submit control stays present on the portal');
   await s.portal.close();
 });
 

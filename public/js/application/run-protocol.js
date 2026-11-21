@@ -16,8 +16,8 @@ export const MILESTONES = Object.freeze([
   { step: 'fill', label: 'Entering answers' },
   { step: 'upload', label: 'Uploading files' },
   { step: 'review', label: 'Checking portal review' },
-  { step: 'submit', label: 'Submitting demo' },
-  { step: 'verify', label: 'Verifying receipt' },
+  { step: 'save-draft', label: 'Saving draft on the test portal' },
+  { step: 'verify', label: 'Reading the draft back' },
 ]);
 
 function nest(flat) {

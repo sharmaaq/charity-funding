@@ -122,33 +122,32 @@ export const demoAdapter = {
     return { files: filesSeen };
   },
 
-  // Clicks submit exactly once (never retried), then reads and verifies the receipt.
-  async submit(page, { manifest, emit, check }) {
+  // Saves a draft on the test portal exactly once (never retried), then reads it back and verifies it. This adapter has
+  // no submit action: the portal's final submit control is never located, focused, filled or clicked.
+  async saveDraft(page, { manifest, emit, check }) {
     check();
-    const hash = await one(page, 'main [data-field="reviewedPayloadHash"]', 'submit', 'reviewedPayloadHash');
+    const hash = await one(page, 'main [data-field="draftPayloadHash"]', 'save-draft', 'draftPayloadHash');
     await hash.fill(manifest.payloadHash);
-    const confirm = await one(page, 'main [data-field="demoTransfer"]', 'submit', 'demoTransfer');
-    await confirm.check();
-    const button = await one(page, 'main [data-action="submit-demo"]', 'submit', 'submit');
+    const button = await one(page, 'main [data-action="save-draft"]', 'save-draft', 'save-draft');
     check();
-    emit('submit', 'started');
+    emit('save-draft', 'started');
     try {
       await Promise.all([page.waitForLoadState('load'), button.click({ noWaitAfter: false })]);
-      await page.waitForSelector('main[data-page="receipt"]', { timeout: 10000 });
+      await page.waitForSelector('main[data-page="draft"]', { timeout: 10000 });
     } catch {
-      // The click happened; whether the portal recorded it is unknown. Never click again.
-      throw new RunError('SUBMIT_UNCONFIRMED', 'submit', 'The demo portal did not confirm the submission, so the outcome is unknown. It was not retried.');
+      // The click happened; whether the portal saved it is unknown. Never click again.
+      throw new RunError('DRAFT_UNCONFIRMED', 'save-draft', 'The demo portal did not confirm the draft, so the outcome is unknown. It was not retried.');
     }
-    emit('submit', 'complete');
+    emit('save-draft', 'complete');
     emit('verify', 'started');
-    await inspect(page, 'receipt', 'verify');
-    const read = async (k) => norm(await (await one(page, `[data-receipt="${k}"]`, 'verify', `receipt.${k}`)).textContent());
-    const receipt = { reference: await read('reference'), state: await read('state'), target: await read('target'), payloadHash: await read('payload-hash'), receivedAt: await read('received-at') };
-    if (receipt.reference !== `DEMO-${manifest.attemptId}` || receipt.state !== 'received-demo' || receipt.target !== 'controlled-test-portal' || receipt.payloadHash !== manifest.payloadHash) {
-      throw new RunError('RECEIPT_MISMATCH', 'verify', 'The demo receipt does not match this package, so the result could not be verified.');
+    await inspect(page, 'draft', 'verify');
+    const read = async (k) => norm(await (await one(page, `[data-draft="${k}"]`, 'verify', `draft.${k}`)).textContent());
+    const draft = { reference: await read('reference'), state: await read('state'), target: await read('target'), payloadHash: await read('payload-hash'), receivedAt: await read('saved-at') };
+    if (draft.reference !== `DEMO-${manifest.attemptId}` || draft.state !== 'draft-saved-demo' || draft.target !== 'controlled-test-portal' || draft.payloadHash !== manifest.payloadHash) {
+      throw new RunError('DRAFT_MISMATCH', 'verify', 'The demo draft does not match this package, so the result could not be verified.');
     }
     emit('verify', 'complete');
-    return receipt;
+    return draft;
   },
 
   // A demo run has nothing external to reconcile with: an unconfirmed run stays unknown.

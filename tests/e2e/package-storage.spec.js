@@ -4,7 +4,7 @@ import { readStore, readyReview, saveFromOtherTab, fillStorage } from './package
 
 const tick = async (page) => {
   await page.getByLabel('I have reviewed these demo answers and documents').check();
-  await page.getByLabel('Run the demo transfer using this package').check();
+  await page.getByLabel('Save a demo draft on the test portal using this package').check();
 };
 
 test('attachment bytes are identical after copying into the snapshot and after a reload (SHA-256)', async ({ page }) => {

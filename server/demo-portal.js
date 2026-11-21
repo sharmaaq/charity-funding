@@ -15,6 +15,7 @@ import busboy from 'busboy';
 export const PORTAL_VERSION = 'gwf-demo-v1';
 export const PORTAL_TARGET = 'controlled-test-portal';
 export const RECEIPT_STATE = 'received-demo';
+export const DRAFT_STATE = 'draft-saved-demo';
 
 const YESNO = [['yes', 'Yes'], ['no', 'No']];
 // The portal's own form definition. Keys are this portal's stable data-field names (deliberately the canonical IDs).
@@ -56,7 +57,7 @@ export const PORTAL_PAGES = Object.freeze([
     { key: 'compliance.contactPermission', label: 'May the funder contact you about other opportunities?', kind: 'select', options: YESNO },
   ] },
 ]);
-const PAGE_IDS = ['start', ...PORTAL_PAGES.map((p) => p.id), 'documents', 'review', 'receipt'];
+const PAGE_IDS = ['start', ...PORTAL_PAGES.map((p) => p.id), 'documents', 'review', 'draft', 'receipt'];
 const FILE_ROLES = [['proposal', 'Proposal (PDF)', [[0x25, 0x50, 0x44, 0x46, 0x2d]]], ['accounts', 'Latest accounts (PDF or Word)', [[0x25, 0x50, 0x44, 0x46, 0x2d], [0x50, 0x4b, 0x03, 0x04]]]];
 const MAX_UPLOAD = 10 * 1024 * 1024;
 
@@ -103,7 +104,7 @@ function validatePage(page, data) {
 export async function startDemoPortal({ attemptId, payloadHash, now = () => new Date(), faults = {} }) {
   const token = crypto.randomBytes(24).toString('hex');
   const base = `/portal/${token}`;
-  const state = { sessionId: null, csrf: null, pages: {}, files: {}, receipt: null, submits: 0, requests: [] };
+  const state = { sessionId: null, csrf: null, pages: {}, files: {}, receipt: null, draft: null, submits: 0, drafts: 0, requests: [] };
   const sockets = new Set();
 
   const layout = (pageId, title, body) => `<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><title>DEMO test portal: ${esc(title)}</title>
@@ -155,10 +156,33 @@ ${FILE_ROLES.every(([r]) => state.files[r]) ? `<p><a href="${base}/review" data-
 ${error ? `<p class="err" role="alert" data-portal-errors>${esc(error)}</p>` : ''}
 <table><tbody>${rows}</tbody></table>
 <h3>Files received</h3><table><thead><tr><th>Role</th><th>Name</th><th>Bytes</th><th>SHA-256 computed by this portal</th></tr></thead><tbody>${files}</tbody></table>
-<form method="post" action="${base}/submit"><input type="hidden" name="_csrf" value="${state.csrf}">
+<form method="post" action="${base}/draft" data-form="save-draft"><input type="hidden" name="_csrf" value="${state.csrf}">
+<label for="f-draft-hash">Package hash for the draft</label><input type="text" id="f-draft-hash" name="draftPayloadHash" data-field="draftPayloadHash" required>
+<p><button type="submit" data-action="save-draft">Save draft</button></p></form>
+<hr><p>Final submission is a separate step on this test portal. The runner never uses it.</p>
+<form method="post" action="${base}/submit" data-form="final-submit"><input type="hidden" name="_csrf" value="${state.csrf}">
 <label for="f-hash">Reviewed package hash</label><input type="text" id="f-hash" name="reviewedPayloadHash" data-field="reviewedPayloadHash" required>
 <p><input type="checkbox" id="f-transfer" name="demoTransfer" data-field="demoTransfer"> <label for="f-transfer" style="display:inline">Submit this demo application to the test portal</label></p>
 <p><button type="submit" data-action="submit-demo">Submit demo application</button></p></form>`);
+  };
+
+  const draftPage = () => {
+    const d = state.draft;
+    const rows = PORTAL_PAGES.flatMap((p) => p.fields.map((f) => {
+      const v = (state.pages[p.id] || {})[f.key];
+      return `<tr><th scope="row">${esc(f.label)}</th><td data-draft-answer="${esc(f.key)}">${esc(f.kind === 'checkbox' ? (v === 'on' ? 'yes' : 'no') : v ?? '')}</td></tr>`;
+    })).join('\n');
+    const files = FILE_ROLES.map(([r, l]) => { const x = state.files[r]; return `<tr data-draft-file="${r}"><th scope="row">${esc(l)}</th><td data-file-name>${esc(x ? x.filename : '')}</td><td data-file-size>${x ? x.size : ''}</td><td data-file-sha256>${x ? x.sha256 : ''}</td></tr>`; }).join('\n');
+    const hash = faults.draftHashWrong ? sha256(`${d.payloadHash}x`) : d.payloadHash;
+    return layout('draft', 'Draft saved', `
+<dl><dt>Reference</dt><dd data-draft="reference">${esc(d.reference)}</dd>
+<dt>Status</dt><dd data-draft="state">${DRAFT_STATE}</dd>
+<dt>Target</dt><dd data-draft="target">${PORTAL_TARGET}</dd>
+<dt>Package hash</dt><dd data-draft="payload-hash">${esc(hash)}</dd>
+<dt>Saved at</dt><dd data-draft="saved-at">${esc(d.savedAt)}</dd></dl>
+<table><tbody>${rows}</tbody></table>
+<table><thead><tr><th>Role</th><th>Name</th><th>Bytes</th><th>SHA-256 computed by this portal</th></tr></thead><tbody>${files}</tbody></table>
+<p>This is a saved draft on the controlled test portal. It has not been submitted, and nothing was sent to Garfield Weston.</p>`);
   };
 
   const receiptPage = () => {
@@ -268,6 +292,25 @@ ${error ? `<p class="err" role="alert" data-portal-errors>${esc(error)}</p>` : '
         }
         if (faults.dropSubmitResponse) { req.socket.destroy(); return; } // test only: the receipt exists but the answer is lost
         redirect(res, 'receipt');
+        return;
+      }
+      if (pageId === 'draft') {
+        if (req.method === 'GET') {
+          if (!state.draft) { send(res, 404, layout('error', 'No draft', '<p data-portal-errors>No draft has been saved.</p>')); return; }
+          send(res, 200, draftPage());
+          return;
+        }
+        if (req.method !== 'POST') { send(res, 405, 'Method not allowed'); return; }
+        const data = await readForm(req);
+        if (data._csrf !== state.csrf) { send(res, 403, layout('error', 'Form expired', '<p data-portal-errors>The form token is not valid.</p>')); return; }
+        const missing = PORTAL_PAGES.filter((p) => !state.pages[p.id] || Object.keys(validatePage(p, state.pages[p.id])).length).map((p) => p.title);
+        if (missing.length) { send(res, 422, reviewPage(`These pages are incomplete: ${missing.join(', ')}.`)); return; }
+        if (!FILE_ROLES.every(([r]) => state.files[r])) { send(res, 422, reviewPage('Both documents are required.')); return; }
+        if (data.draftPayloadHash !== payloadHash) { send(res, 422, reviewPage('The package hash does not match this application.')); return; }
+        state.drafts += 1;
+        if (!state.draft) state.draft = { reference: `DEMO-${attemptId}`, payloadHash, savedAt: now().toISOString(), files: { ...state.files } };
+        if (faults.dropDraftResponse) { req.socket.destroy(); return; } // test only: the draft exists but the answer is lost
+        redirect(res, 'draft');
         return;
       }
       if (pageId === 'receipt' && req.method === 'GET') {

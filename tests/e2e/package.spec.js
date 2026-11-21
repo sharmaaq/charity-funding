@@ -40,11 +40,11 @@ test('worked example: package, hash, confirmations, disabled run control, frozen
   // explanation, unchecked confirmations, disabled primary control with the unavailable wording
   await expect(page.getByTestId('package-explanation')).toContainText('processed temporarily by our server');
   await expect(page.getByTestId('package-explanation')).toContainText('Nothing is sent to the real funder');
-  await expect(page.getByTestId('package-explanation')).toContainText('originals stay in this browser');
+  await expect(page.getByTestId('package-explanation')).toContainText('originals stay in server storage for this charity');
   await expect(page.getByLabel('I have reviewed these demo answers and documents')).not.toBeChecked();
-  await expect(page.getByLabel('Run the demo transfer using this package')).not.toBeChecked();
+  await expect(page.getByLabel('Save a demo draft on the test portal using this package')).not.toBeChecked();
   await expect(page.getByTestId('run-demo')).toBeDisabled();
-  await expect(page.getByTestId('run-demo')).toHaveText('Run submission demo');
+  await expect(page.getByTestId('run-demo')).toHaveText('Save demo draft');
   // Phase C: the runner is available, so the note explains the run instead of saying automation is unavailable
   await expect(page.getByTestId('automation-unavailable')).toContainText('takes up to 90 seconds');
   await expect(page.getByTestId('automation-unavailable')).toContainText('Keep this page open');
@@ -57,7 +57,7 @@ test('worked example: package, hash, confirmations, disabled run control, frozen
   await page.getByLabel('I have reviewed these demo answers and documents').check();
   await expect(page.getByTestId('package-status')).toContainText('Nothing is saved');
   expect(await readStore(page, 'submissionSnapshots')).toHaveLength(0);
-  await page.getByLabel('Run the demo transfer using this package').check();
+  await page.getByLabel('Save a demo draft on the test portal using this package').check();
   await expect(page.getByTestId('package-status')).toContainText('Package saved as snapshot');
   const snaps = await readStore(page, 'submissionSnapshots');
   expect(snaps).toHaveLength(1);
@@ -106,7 +106,7 @@ test('editing an answer clears both confirmations, changes the hash, and leaves 
   await readyReview(page);
   const h1 = await page.getByTestId('package-hash').innerText();
   await page.getByLabel('I have reviewed these demo answers and documents').check();
-  await page.getByLabel('Run the demo transfer using this package').check();
+  await page.getByLabel('Save a demo draft on the test portal using this package').check();
   await expect(page.getByTestId('package-status')).toContainText('Package saved');
   const before = (await readStore(page, 'submissionSnapshots'))[0];
 
@@ -120,11 +120,11 @@ test('editing an answer clears both confirmations, changes the hash, and leaves 
   await expect(page.getByTestId('package-hash')).toHaveText(/^[0-9a-f]{64}$/);
   expect(await page.getByTestId('package-hash').innerText()).not.toBe(h1);
   await expect(page.getByLabel('I have reviewed these demo answers and documents')).not.toBeChecked();
-  await expect(page.getByLabel('Run the demo transfer using this package')).not.toBeChecked();
+  await expect(page.getByLabel('Save a demo draft on the test portal using this package')).not.toBeChecked();
   expect(await readStore(page, 'submissionSnapshots')).toHaveLength(1);
 
   await page.getByLabel('I have reviewed these demo answers and documents').check();
-  await page.getByLabel('Run the demo transfer using this package').check();
+  await page.getByLabel('Save a demo draft on the test portal using this package').check();
   await expect(page.getByTestId('package-status')).toContainText('Package saved');
   const snaps = await readStore(page, 'submissionSnapshots');
   expect(snaps).toHaveLength(2);
@@ -187,7 +187,7 @@ test('a text file is never accepted as accounts, including one renamed to .pdf',
 test('layout: the review with the package has no horizontal overflow', async ({ page }) => {
   await readyReview(page);
   await page.getByLabel('I have reviewed these demo answers and documents').check();
-  await page.getByLabel('Run the demo transfer using this package').check();
+  await page.getByLabel('Save a demo draft on the test portal using this package').check();
   await expect(page.getByTestId('package-status')).toContainText('Package saved');
   await expectNoOverflow(page);
   await page.getByTestId('review-next').scrollIntoViewIfNeeded();

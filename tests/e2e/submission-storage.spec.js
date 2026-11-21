@@ -145,7 +145,7 @@ test('receipt save failure: the result stays visible, can be downloaded, and Ret
   });
   await page.getByTestId('run-demo').click();
   await expect(page.getByTestId('receipt-not-saved')).toBeVisible({ timeout: 90000 });
-  await expect(page.getByTestId('receipt-not-saved')).toContainText('Demo completed; receipt not saved');
+  await expect(page.getByTestId('receipt-not-saved')).toContainText('Demo draft saved on the test portal, but the record was not saved here');
   await expect(page.getByTestId('run-complete')).toBeVisible();
   expect(await readStore(page, 'submissionReceipts')).toHaveLength(0);
   const [dl] = await Promise.all([page.waitForEvent('download'), page.getByTestId('download-receipt').click()]);
@@ -172,7 +172,7 @@ test('busy runner (429) and unavailable runner are honest: no success, no receip
   await fresh.goto(page.url());
   await expect(fresh.getByTestId('package-hash')).toHaveText(/^[0-9a-f]{64}$/);
   await fresh.getByLabel('I have reviewed these demo answers and documents').check();
-  await fresh.getByLabel('Run the demo transfer using this package').check();
+  await fresh.getByLabel('Save a demo draft on the test portal using this package').check();
   await expect(fresh.getByTestId('automation-unavailable')).toContainText('Automation unavailable');
   await expect(fresh.getByTestId('run-demo')).toBeDisabled();
   await fresh.close();

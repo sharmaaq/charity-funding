@@ -50,7 +50,7 @@ export async function readyReview(page) {
 // Ticks both demo confirmations and waits until the snapshot is stored (new, or the identical one already stored).
 export async function confirmBoth(page) {
   await page.getByLabel('I have reviewed these demo answers and documents').check();
-  await page.getByLabel('Run the demo transfer using this package').check();
+  await page.getByLabel('Save a demo draft on the test portal using this package').check();
   await expect(page.getByTestId('package-status')).toContainText(/(Package saved|already saved) as snapshot/);
 }
 

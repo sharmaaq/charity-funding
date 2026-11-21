@@ -1,6 +1,11 @@
 # Current status and handoff
 
-## Latest: S4-001 Phase 1 candidate deployed (no traffic) — 2026-11-21 (implementing model)
+## Latest: S4-001 Phase 2 (draft-only boundary) built — 2026-11-21 (implementing model)
+
+- The runner saves a draft on the test portal and never submits; live submit() throws FINAL_SUBMISSION_DISABLED; review screen offers the package download and the funder page. Local tests: unit 120 (1 skipped), integration 80, Playwright 294 (291 passed on the first full run, the 3 failures were one stale test string, fixed and re-run 24 of 24 for that file). Details in the [ticket](../project/sprint-4/tickets/S4-001-multi-charity-platform/ticket.md).
+- Deployed only as a no-traffic revision tagged phase2. Phase 1 (tag phase1) is also not live: still waiting on G5 and G6.
+
+## Earlier: S4-001 Phase 1 candidate deployed (no traffic) — 2026-11-21 (implementing model)
 
 - Phase 1 is deployed as no-traffic revision charity-funding-00009-sid, tag phase1 (https://phase1---charity-funding-4zw3jha7va-ew.a.run.app), with ADMIN_EMAILS and DATA_BUCKET set. Your Place and Our Time are seeded in the real Firestore and bucket and the admin is a member of both. Unauthenticated requests get 401 and no content. The live site is still revision 00007 at 100 percent.
 - Waiting on G5 (OAuth client, needs the user in the console), then G6 (IAP and invoker changes) before Phase 1 can take traffic. Details in the [ticket](../project/sprint-4/tickets/S4-001-multi-charity-platform/ticket.md).

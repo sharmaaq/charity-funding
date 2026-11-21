@@ -1,6 +1,6 @@
 // The real Garfield Weston connector, delivered as a disabled capability with a readiness report (spec section 12).
-// No code here navigates anywhere or contacts any funder or Blackbaud system. prepare() and submit() refuse before
-// doing anything. The gates are what section 12 requires; every one is unmet in this demo.
+// No code here navigates anywhere or contacts any funder or Blackbaud system. prepare() refuses before
+// doing anything, and submit() always throws FINAL_SUBMISSION_DISABLED. The gates are what section 12 requires; every one is unmet in this demo.
 export const LIVE_ADAPTER_ID = 'garfield-weston-regular-core-live';
 
 export const LIVE_GATES = Object.freeze([
@@ -24,6 +24,13 @@ export class LiveNotConfigured extends Error {
   }
 }
 
+export class FinalSubmissionDisabled extends Error {
+  constructor() {
+    super('Final submission is disabled in this platform. Nothing was sent.');
+    this.code = 'FINAL_SUBMISSION_DISABLED';
+  }
+}
+
 export const liveAdapter = Object.freeze({
   describe: () => ({ id: LIVE_ADAPTER_ID, version: '0', mode: 'live', readiness: 'unavailable' }),
   readiness: () => ({ available: false, gates: LIVE_GATES.map((g) => ({ ...g, met: false })) }),
@@ -32,6 +39,7 @@ export const liveAdapter = Object.freeze({
   inspect: async () => { throw new LiveNotConfigured(); },
   prepare: async () => { throw new LiveNotConfigured(); },
   compare: () => { throw new LiveNotConfigured(); },
-  submit: async () => { throw new LiveNotConfigured(); },
+  // No argument, flag or environment variable changes this. Submission is always done by the manager on the funder's own site.
+  submit: async () => { throw new FinalSubmissionDisabled(); },
   reconcile: async () => { throw new LiveNotConfigured(); },
 });

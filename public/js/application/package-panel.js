@@ -19,20 +19,24 @@ import { ADAPTER_ID, PackageBlocked, REPLACEMENT_CHECK_TEXT, freezeSnapshot, ins
 import { ProposalError } from './proposal.js';
 import { ROLE_LABEL } from './transfer.js';
 import { ORIGIN_CHIP, SOURCE_KIND } from './labels.js';
+import { buildZip } from './zip.js';
 
 export const REVIEW_CHECK_LABEL = 'I have reviewed these demo answers and documents';
-export const TRANSFER_CHECK_LABEL = 'Run the demo transfer using this package';
-export const EXPLANATION_TEXT = 'The answers and files in this package are processed temporarily by our server only after you start the demo run. Nothing is sent to the real funder, and the originals stay in this browser. These two checks authorise this demo run only. They are not real safeguarding, tax or privacy attestations.';
-export const AUTOMATION_UNAVAILABLE_TEXT = 'Automation unavailable. The demo runner cannot be used right now, so the demo transfer cannot be started. Your package is not affected.';
+export const TRANSFER_CHECK_LABEL = 'Save a demo draft on the test portal using this package';
+export const EXPLANATION_TEXT = 'The answers and files in this package are processed temporarily by our server only after you start the demo run. Nothing is sent to the real funder, and the originals stay in server storage for this charity. The demo only saves a draft on a test portal; it never submits. These two checks authorise this demo draft only. They are not real safeguarding, tax or privacy attestations.';
+export const AUTOMATION_UNAVAILABLE_TEXT = 'Automation unavailable. The demo runner cannot be used right now, so the demo draft cannot be saved. Your package is not affected.';
 export const BEFORE_RUN_TEXT = 'The demo run takes up to 90 seconds. Keep this page open: closing or reloading it interrupts the run, and the result would then not be confirmed. You can move to other pages of this app while it runs.';
-export const COMPLETED_TITLE = 'Demo submission completed — nothing sent to Garfield Weston';
-export const RUN_LABEL = 'Run submission demo';
+export const COMPLETED_TITLE = 'Demo draft saved on the test portal — not submitted, nothing sent to Garfield Weston';
+export const RUN_LABEL = 'Save demo draft';
+export const FUNDER_PAGE_URL = 'https://garfieldweston.org/for-grant-applicants/how-to-apply/';
+export const FUNDER_PAGE_LABEL = "Open the funder's application page";
+export const DOWNLOAD_PACKAGE_LABEL = 'Download application package';
 
 const shortHash = (s) => `${s.slice(0, 12)}…${s.slice(-6)}`;
 
 export function buildPackagePanel(sess, api) {
   const root = h('section', { class: 'review-block review-next', id: 'review-next', 'data-testid': 'review-next', 'aria-labelledby': 'rv-next' },
-    h('h3', { id: 'rv-next', text: 'Package and submission demo' }));
+    h('h3', { id: 'rv-next', text: 'Package and draft demo' }));
   const body = h('div', { 'data-testid': 'package-body' });
   root.append(body);
 
@@ -134,15 +138,15 @@ export function buildPackagePanel(sess, api) {
       h('h4', { text: COMPLETED_TITLE }),
       h('dl', { class: 'review-list' },
         row('Demo reference', h('code', { 'data-testid': 'receipt-reference', text: receipt.reference })),
-        row('Funder and programme', 'Garfield Weston Foundation, Regular Grants (core costs). Transferred only to the controlled test portal run by this demo.'),
-        row('Submitted to the test portal', formatDateTime(receipt.confirmedAt)),
+        row('Funder and programme', 'Garfield Weston Foundation, Regular Grants (core costs). Saved as a draft only on the controlled test portal run by this demo.'),
+        row('Draft saved on the test portal', formatDateTime(receipt.confirmedAt)),
         row('Snapshot revision', String(ev.snapshotRevision ?? '')),
-        row('Documents transferred', h('ul', { class: 'issue-list' }, (ev.files || []).map((f) => h('li', { text: `${f.filename} · ${formatBytes(f.sizeBytes)} · SHA-256 ${shortHash(f.sha256)}` })))),
+        row('Documents in the draft', h('ul', { class: 'issue-list' }, (ev.files || []).map((f) => h('li', { text: `${f.filename} · ${formatBytes(f.sizeBytes)} · SHA-256 ${shortHash(f.sha256)}` })))),
         row('Package hash', h('code', { class: 'hash-cell', text: receipt.payloadHash }))),
-      h('p', { class: 'sub', text: 'This receipt is evidence of the controlled test portal only. It is not an award or a decision, and no email will follow.' }),
+      h('p', { class: 'sub', text: 'This draft record is evidence of the controlled test portal only. Nothing was submitted. To apply for real, download the application package and use the funder\'s own application page. This is not an award or a decision, and no email will follow.' }),
       h('div', { class: 'app-bar-main' },
         h('a', { class: 'btn primary', href: '#/tracking', 'data-testid': 'view-tracking', text: 'View in Tracking' }),
-        h('button', { type: 'button', class: 'btn', 'data-testid': 'download-receipt', text: 'Download receipt', onclick: () => downloadBlob(new Blob([receiptDocument(receipt)], { type: 'application/json' }), `${receipt.reference}.json`) }),
+        h('button', { type: 'button', class: 'btn', 'data-testid': 'download-receipt', text: 'Download draft record', onclick: () => downloadBlob(new Blob([receiptDocument(receipt)], { type: 'application/json' }), `${receipt.reference}.json`) }),
         h('button', { type: 'button', class: 'btn quiet', 'data-testid': 'revise-draft', text: 'Create revised draft', onclick: () => api.reviseDraft() })));
   }
 
@@ -181,7 +185,7 @@ export function buildPackagePanel(sess, api) {
     if (receipt) {
       if (run && run.saveError) {
         parts.push(h('div', { class: 'form-error', role: 'alert', 'data-testid': 'receipt-not-saved' },
-          h('p', { text: 'Demo completed; receipt not saved. Download the receipt now, or retry saving it. The demo run is not repeated.' }),
+          h('p', { text: 'Demo draft saved on the test portal, but the record was not saved here. Download the draft record now, or retry saving it. The demo run is not repeated.' }),
           h('button', { type: 'button', class: 'btn primary', 'data-testid': 'retry-save', text: 'Retry save', onclick: () => run.retrySave() })));
       }
       parts.push(completion(receipt));
@@ -363,7 +367,10 @@ export function buildPackagePanel(sess, api) {
         h('button', { type: 'button', class: 'btn', 'data-testid': 'download-proposal', text: 'Download proposal', onclick: () => {
           const a = prep.attachments.find((x) => x.role === 'proposal');
           downloadBlob(new Blob([a.bytes], { type: a.mime }), a.filename);
-        } })));
+        } }),
+        h('button', { type: 'button', class: 'btn', 'data-testid': 'download-package', text: DOWNLOAD_PACKAGE_LABEL, onclick: () => downloadPackage(prep) }),
+        h('a', { class: 'btn', 'data-testid': 'open-funder-page', href: FUNDER_PAGE_URL, target: '_blank', rel: 'noopener noreferrer', text: FUNDER_PAGE_LABEL })));
+      parts.push(h('p', { class: 'sub', 'data-testid': 'manual-submit-note', text: 'This app never submits an application. To apply, download the package and submit it yourself on the funder\'s own page. The app does not record or imply that anything was submitted.' }));
       parts.push(notesView(sourceNotes(sess.answers)));
     }
     if (state.phase !== 'preparing' && (prep || (state.blocked && state.blocked.code !== 'not-ready' && state.blocked.code !== 'unsaved'))) parts.push(replacementView());
@@ -385,7 +392,7 @@ export function buildPackagePanel(sess, api) {
     parts.push(runArea);
     parts.push(h('details', { class: 'live-note', 'data-testid': 'live-explanation' },
       h('summary', { text: 'Live submission' }),
-      h('p', { text: 'Live submission is not available. It needs a verified, current mapping of the real application portal, authority from the applicant and a reviewed non-synthetic application. None of these exist in this demo, and there is no switch to enable it.' })));
+      h('p', { text: 'Final submission is not available and there is no switch to enable it: submission is always done by you on the funder\'s own page. A live connector would also need a verified, current mapping of the real application portal, authority from the applicant and a reviewed non-synthetic application, none of which exist in this demo.' })));
 
     body.replaceChildren(...parts);
     paintChecks();
@@ -398,4 +405,15 @@ export function buildPackagePanel(sess, api) {
   root.prepare = prepare;
   prepare();
   return root;
+}
+
+// The manager's own copy of the package, for submitting by hand on the funder's page. Nothing is sent anywhere.
+function downloadPackage(prep) {
+  const enc = new TextEncoder();
+  const info = { adapter: ADAPTER_ID, packageHashSha256: prep.payloadHash, files: prep.attachments.map((a) => ({ role: a.role, filename: a.filename, sizeBytes: a.size, sha256: a.sha256 })), answers: prep.normalised };
+  const readme = ["Application package prepared by Your Place grant discovery.",
+    "This app never submits an application. Submit it yourself on the funders own application page.",
+    `answers.json holds the answers; the other files are the documents to upload. Package hash (SHA-256): ${prep.payloadHash}`, ""].join('\r\n');
+  const entries = [{ name: 'README.txt', bytes: enc.encode(readme) }, { name: 'answers.json', bytes: enc.encode(JSON.stringify(info, null, 2)) }, ...prep.attachments.map((a) => ({ name: a.filename, bytes: a.bytes }))];
+  downloadBlob(new Blob([buildZip(entries)], { type: 'application/zip' }), 'application-package.zip');
 }

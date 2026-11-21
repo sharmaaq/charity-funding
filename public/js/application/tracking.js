@@ -6,11 +6,11 @@ import { mapError } from '../org/db.js';
 import { reconcileStale, receiptDocument, subscribe } from './submission-client.js';
 import { appHash, reviewHash } from './routes.js';
 
-export const TRACKING_NOTICE = 'Demo records only. Each receipt comes from the controlled test portal run by this demo; nothing was sent to Garfield Weston, and no funding decision exists.';
+export const TRACKING_NOTICE = 'Demo records only. Each record is a draft saved on the controlled test portal run by this demo. Nothing was submitted or sent to Garfield Weston, and no funding decision exists.';
 const STATE_LABEL = {
-  demo_completed: 'Demo completed',
+  demo_completed: 'Draft saved (demo)',
   failed: 'Failed',
-  cancelled: 'Stopped before submitting',
+  cancelled: 'Stopped before a draft was saved',
   interrupted_unknown: 'Not confirmed (outcome unknown)',
   running: 'In progress',
 };
@@ -21,7 +21,7 @@ export function buildTracking({ services, getGrant }) {
   const shortHash = (s) => `${s.slice(0, 12)}…${s.slice(-6)}`;
 
   async function load() {
-    root.replaceChildren(h('p', { class: 'placeholder-notice', 'data-testid': 'tracking-notice', text: TRACKING_NOTICE }), h('p', { class: 'loading', role: 'status', text: 'Loading demo receipts…' }));
+    root.replaceChildren(h('p', { class: 'placeholder-notice', 'data-testid': 'tracking-notice', text: TRACKING_NOTICE }), h('p', { class: 'loading', role: 'status', text: 'Loading demo drafts…' }));
     let svc;
     try {
       svc = await services();
@@ -31,7 +31,7 @@ export function buildTracking({ services, getGrant }) {
       paint(receipts, attempts, apps);
     } catch (e) {
       root.replaceChildren(h('p', { class: 'placeholder-notice', 'data-testid': 'tracking-notice', text: TRACKING_NOTICE }),
-        h('p', { class: 'form-error', role: 'alert', text: `Demo receipts could not be read: ${mapError(e).message}` }));
+        h('p', { class: 'form-error', role: 'alert', text: `Demo draft records could not be read: ${mapError(e).message}` }));
     }
   }
 
@@ -40,8 +40,8 @@ export function buildTracking({ services, getGrant }) {
     const withHistory = apps.filter((a) => attempts.some((t) => t.applicationId === a.id));
     if (!withHistory.length) {
       parts.push(h('div', { class: 'empty', 'data-testid': 'tracking-empty' },
-        h('p', null, h('strong', null, 'No demo submissions yet.')),
-        h('p', null, 'Run the submission demo from the review of the ', h('a', { href: appHash('G-001') }, 'G-001 application'), '. Funding outcomes are not tracked in this demo.')));
+        h('p', null, h('strong', null, 'No demo drafts yet.')),
+        h('p', null, 'Save a demo draft from the review of the ', h('a', { href: appHash('G-001') }, 'G-001 application'), '. Funding outcomes are not tracked in this demo.')));
     }
     for (const app of withHistory) {
       const grant = getGrant(app.grantId);
@@ -50,7 +50,7 @@ export function buildTracking({ services, getGrant }) {
       parts.push(h('article', { class: 'track-app', 'data-testid': 'track-app', 'data-grant': app.grantId },
         h('h2', { text: grant ? `${grant.funder}: ${grant.name}` : app.grantId }),
         h('p', { class: 'sub' }, h('span', { class: 'badge demo-badge', text: 'Demo' }), ' ', h('a', { href: reviewHash(app.grantId), text: 'Open the application review' })),
-        mine.length ? h('ul', { class: 'receipt-list' }, mine.map((r) => receiptCard(r, grant))) : h('p', { 'data-testid': 'no-receipt', text: 'No demo receipt for this application yet.' }),
+        mine.length ? h('ul', { class: 'receipt-list' }, mine.map((r) => receiptCard(r, grant))) : h('p', { 'data-testid': 'no-receipt', text: 'No demo draft for this application yet.' }),
         h('h3', { text: 'Attempt history' }),
         h('ol', { class: 'attempt-list', 'data-testid': 'attempt-list' }, tries.map((t) => h('li', { 'data-state': t.state, 'data-testid': 'attempt' },
           h('strong', { text: STATE_LABEL[t.state] || t.state }),
@@ -63,11 +63,11 @@ export function buildTracking({ services, getGrant }) {
   function receiptCard(r, grant) {
     const ev = r.evidenceSummary || {};
     return h('li', { class: 'receipt-card', 'data-testid': 'receipt-card' },
-      h('p', null, h('span', { class: 'badge demo-badge', text: 'DEMO receipt' }), ' ', h('code', { 'data-testid': 'tracking-reference', text: r.reference })),
-      h('p', { text: `Received by the controlled test portal ${formatDateTime(r.confirmedAt)} · snapshot revision ${ev.snapshotRevision ?? ''} · package ${shortHash(r.payloadHash)}` }),
+      h('p', null, h('span', { class: 'badge demo-badge', text: 'Draft saved (demo)' }), ' ', h('code', { 'data-testid': 'tracking-reference', text: r.reference })),
+      h('p', { text: `Draft saved on the controlled test portal ${formatDateTime(r.confirmedAt)} · snapshot revision ${ev.snapshotRevision ?? ''} · package ${shortHash(r.payloadHash)}` }),
       h('ul', { class: 'issue-list' }, (ev.files || []).map((f) => h('li', { text: `${f.filename} · ${formatBytes(f.sizeBytes)}` }))),
-      h('p', { class: 'sub', text: 'Not sent to Garfield Weston. Not an award, a decision or an application awaiting decision.' }),
-      h('button', { type: 'button', class: 'btn', 'data-testid': 'tracking-download', text: 'Download receipt', onclick: () => downloadBlob(new Blob([receiptDocument(r, grant && grant.name)], { type: 'application/json' }), `${r.reference}.json`) }));
+      h('p', { class: 'sub', text: 'Not submitted and not sent to Garfield Weston. Not an award, a decision or an application awaiting decision.' }),
+      h('button', { type: 'button', class: 'btn', 'data-testid': 'tracking-download', text: 'Download draft record', onclick: () => downloadBlob(new Blob([receiptDocument(r, grant && grant.name)], { type: 'application/json' }), `${r.reference}.json`) }));
   }
 
   const unsubscribe = subscribe((run) => { if (!root.isConnected) { unsubscribe(); return; } if (run.phase !== 'running') load(); });

@@ -62,7 +62,7 @@ test('Plan application on G-001 opens the workspace with six sections and the ex
   await expectNoOverflow(page);
   // the grant moved to Planning; Tracking has no demo records yet (S3-001 Phase C replaced its placeholder)
   await page.goto('/#/tracking');
-  await expect(page.getByTestId('tracking-empty')).toContainText('No demo submissions yet');
+  await expect(page.getByTestId('tracking-empty')).toContainText('No demo drafts yet');
   await expect(page.locator('main button')).toHaveCount(0);
 });
 

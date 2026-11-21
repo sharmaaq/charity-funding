@@ -37,18 +37,20 @@ test('worked example: real demo run to a DEMO receipt, shown in Tracking and on 
   const steps = page.getByTestId('run-progress').locator('li');
   await expect(steps).toHaveCount(8);
   for (let i = 0; i < 8; i += 1) await expect(steps.nth(i)).toHaveAttribute('data-status', 'complete');
+  await expect(steps.nth(6)).toContainText('Saving draft on the test portal');
+  await expect(page.getByTestId('run-progress')).not.toContainText(/Submitting/i);
   await expect(steps.nth(0)).toContainText('Checking package');
-  await expect(steps.nth(7)).toContainText('Verifying receipt');
+  await expect(steps.nth(7)).toContainText('Reading the draft back');
 
   const complete = page.getByTestId('run-complete');
-  await expect(complete).toContainText('Demo submission completed — nothing sent to Garfield Weston');
+  await expect(complete).toContainText('Demo draft saved on the test portal — not submitted, nothing sent to Garfield Weston');
   const attempts = await readStore(page, 'submissionAttempts');
   expect(attempts).toHaveLength(1);
   expect(attempts[0].state).toBe('demo_completed');
   await expect(page.getByTestId('receipt-reference')).toHaveText(`DEMO-${attempts[0].id}`);
   const receipts = await readStore(page, 'submissionReceipts');
   expect(receipts).toHaveLength(1);
-  expect(receipts[0]).toMatchObject({ mode: 'demo', target: 'controlled-test-portal', reference: `DEMO-${attempts[0].id}`, attemptId: attempts[0].id });
+  expect(receipts[0]).toMatchObject({ mode: 'demo', kind: 'draft', target: 'controlled-test-portal', reference: `DEMO-${attempts[0].id}`, attemptId: attempts[0].id });
   const snaps = await readStore(page, 'submissionSnapshots');
   expect(receipts[0].payloadHash).toBe(snaps[0].payloadHash);
   expect(receipts[0].evidenceSummary.portalFiles.map((f) => f.sha256)).toEqual(snaps[0].attachments.map((a) => a.sha256));
@@ -64,7 +66,9 @@ test('worked example: real demo run to a DEMO receipt, shown in Tracking and on 
   await page.getByTestId('view-tracking').click();
   await expect(page).toHaveURL(/#\/tracking$/);
   await expect(page.locator('h1')).toHaveText('Tracking');
-  await expect(page.getByTestId('tracking-notice')).toContainText('nothing was sent to Garfield Weston');
+  await expect(page.getByTestId('tracking-notice')).toContainText('sent to Garfield Weston');
+  await expect(page.getByTestId('receipt-card')).toContainText('Draft saved (demo)');
+  await expect(page.getByTestId('tracking')).not.toContainText(/DEMO receipt|submitted to/i);
   await expect(page.getByTestId('receipt-card')).toHaveCount(1);
   await expect(page.getByTestId('tracking-reference')).toHaveText(`DEMO-${attempts[0].id}`);
   await expect(page.getByTestId('attempt')).toHaveCount(1);
@@ -80,7 +84,7 @@ test('worked example: real demo run to a DEMO receipt, shown in Tracking and on 
 
   // planning card; G-001 stays in planning (no new grant state); no past bid created
   await page.goto('/#/planning');
-  await expect(page.getByTestId('card-demo')).toContainText(`Completed demo (DEMO-${attempts[0].id})`);
+  await expect(page.getByTestId('card-demo')).toContainText(`Demo draft saved (DEMO-${attempts[0].id})`);
   expect(await readStore(page, 'bids')).toHaveLength(3);
   expect(outside).toEqual([]);
 });
@@ -120,4 +124,23 @@ test('layout: progress with mixed steps and the not-confirmed state fit at every
   await expectLargeControls(page, '[data-testid="run-area"]');
   await page.getByTestId('run-area').scrollIntoViewIfNeeded();
   await shot(page, 'S3-001-C-run-not-confirmed');
+});
+
+test('review offers the package download and the funder page, and the app never claims a submission', async ({ page }) => {
+  test.setTimeout(120000);
+  await readyReview(page);
+  const funder = page.getByTestId('open-funder-page');
+  await expect(funder).toHaveText("Open the funder's application page");
+  await expect(funder).toHaveAttribute('href', /^https:\/\/garfieldweston\.org\//);
+  await expect(funder).toHaveAttribute('target', '_blank');
+  await expect(funder).toHaveAttribute('rel', /noopener/);
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.getByTestId('download-package').click()]);
+  expect(dl.suggestedFilename()).toBe('application-package.zip');
+  const bytes = await (await import('node:fs/promises')).readFile(await dl.path());
+  expect(bytes.readUInt32LE(0)).toBe(0x04034b50);
+  expect(bytes.includes(Buffer.from('answers.json'))).toBe(true);
+  await expect(page.getByTestId('manual-submit-note')).toContainText('never submits an application');
+  await expect(page.getByTestId('review-next')).not.toContainText(/submitted to the funder|Submit application/i);
+  await expectNoOverflow(page);
+  await expectLargeControls(page, '[data-testid="review-next"]');
 });

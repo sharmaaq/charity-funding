@@ -432,7 +432,7 @@ export function createApplication({ mount, titleEl, now, announce, navigate, get
           h('span', { 'data-testid': 'card-review', text: ` · ${ev.counts.review} need review` }));
         const receipts = (await svc.apps.listReceipts()).filter((r) => r.applicationId === app.id);
         if (activeRunForGrant(grantId)) text.append(h('span', { 'data-testid': 'card-demo', text: ' · Demo run in progress' }));
-        else if (receipts.length) text.append(h('span', { 'data-testid': 'card-demo', text: ` · Completed demo (${receipts[0].reference}), nothing sent to the funder` }));
+        else if (receipts.length) text.append(h('span', { 'data-testid': 'card-demo', text: ` · Demo draft saved (${receipts[0].reference}), not submitted` }));
       } catch (e) {
         text.textContent = `The saved draft could not be read: ${mapError(e).message}`;
       }

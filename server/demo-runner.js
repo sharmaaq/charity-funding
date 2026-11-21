@@ -1,6 +1,7 @@
 // One request-scoped demo run: starts the loopback test portal, a clean headless Chromium, drives the demo adapter,
 // and always tears everything down in `finally`. Nothing is written to disk: the files stay in memory.
 //
+// Draft-only: the runner has no submit action, and its request filter aborts any request to the portal's /submit.
 // Network boundary: the browser context routes every request and aborts anything that is not the exact loopback
 // origin of this run's portal. Service workers are blocked, downloads refused, popups closed, page JavaScript off.
 import { chromium } from 'playwright';
@@ -11,7 +12,7 @@ export const RUN_DEADLINE_MS = 90000;
 export const ACTION_TIMEOUT_MS = 10000;
 export { RunError };
 
-export const STEPS = Object.freeze(['check', 'prepare', 'open', 'fill', 'upload', 'review', 'submit', 'verify']);
+export const STEPS = Object.freeze(['check', 'prepare', 'open', 'fill', 'upload', 'review', 'save-draft', 'verify']);
 
 const launchOptions = () => ({ headless: true, args: process.platform === 'linux' ? ['--no-sandbox', '--disable-dev-shm-usage'] : [] });
 
@@ -76,6 +77,10 @@ export async function runDemo({ manifest, flat, files, emit, signal, deadlineMs 
       const url = route.request().url();
       let origin = null;
       try { origin = new URL(url).origin; } catch { /* unparsable: block */ }
+      let path = '';
+      try { path = new URL(url).pathname; } catch { /* unparsable: blocked above */ }
+      // Request filter: the portal's final submit endpoint is never reachable from the runner, whatever the page does.
+      if (origin === portal.origin && /\/submit\/?$/.test(path)) { blocked.push(`${route.request().method()} ${url.slice(0, 200)}`); return route.abort('blockedbyclient'); }
       if (origin === portal.origin) return route.continue();
       blocked.push(url.slice(0, 200));
       return route.abort('blockedbyclient');
@@ -95,11 +100,12 @@ export async function runDemo({ manifest, flat, files, emit, signal, deadlineMs 
     mark('review', 'started');
     const compared = await demoAdapter.compare(page, { flat, manifest });
     mark('review', 'complete');
-    if (hooks.beforeSubmit) await hooks.beforeSubmit({ browser, context, page, portal });
-    const receipt = await demoAdapter.submit(page, { manifest, emit: mark, check });
-    if (portal.state.submits !== 1) throw new RunError('RECEIPT_MISMATCH', 'verify', 'The demo portal recorded an unexpected number of submissions.');
+    if (hooks.beforeSaveDraft) await hooks.beforeSaveDraft({ browser, context, page, portal });
+    const draft = await demoAdapter.saveDraft(page, { manifest, emit: mark, check });
+    if (portal.state.submits !== 0) throw new RunError('DRAFT_MISMATCH', 'verify', 'The demo portal recorded a final submission. This must never happen.');
+    if (portal.state.drafts !== 1) throw new RunError('DRAFT_MISMATCH', 'verify', 'The demo portal recorded an unexpected number of saved drafts.');
     return {
-      receipt: { reference: receipt.reference, payloadHash: receipt.payloadHash, target: PORTAL_TARGET, confirmedAt: receipt.receivedAt },
+      receipt: { kind: 'draft', reference: draft.reference, payloadHash: draft.payloadHash, target: PORTAL_TARGET, confirmedAt: draft.receivedAt },
       files: compared.files,
       metrics: { durationMs: Date.now() - started, peakRssBytes: peakRss, blockedRequests: blocked.length },
     };

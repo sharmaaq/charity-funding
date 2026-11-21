@@ -211,7 +211,7 @@ test('methods and unknown paths: no CORS, no preflight acceptance', async () => 
   assert.equal((await fetch(`${base}/`)).status, 200, 'static site unchanged');
 });
 
-test('the real stack: real server, real runner, real Chromium, streamed to a verified DEMO receipt', async () => {
+test('the real stack: real server, real runner, real Chromium, streamed to a verified DEMO draft record', async () => {
   const h3 = await startHarness({ api: createApi({ log: () => {} }), defaultUser: USERS.a });
   const b = h3.base;
   const cap = (await (await fetch(`${b}/api/submission-capabilities`)).json()).adapters[0];
@@ -221,10 +221,11 @@ test('the real stack: real server, real runner, real Chromium, streamed to a ver
   assert.equal(res.status, 200);
   const ev = await lines(res);
   const steps = ev.filter((e) => e.type === 'step' && e.status === 'complete').map((e) => e.step);
-  assert.deepEqual(steps, ['check', 'prepare', 'open', 'fill', 'upload', 'review', 'submit', 'verify']);
+  assert.deepEqual(steps, ['check', 'prepare', 'open', 'fill', 'upload', 'review', 'save-draft', 'verify']);
   const done = ev.at(-1);
   assert.equal(done.type, 'completed');
   assert.equal(done.receipt.reference, `DEMO-${r.attemptId}`);
+  assert.equal(done.receipt.kind, 'draft');
   assert.equal(done.receipt.payloadHash, r.manifest.payloadHash);
   assert.deepEqual(done.evidence.files.map((f) => f.sha256), r.manifest.attachments.map((a) => a.sha256));
   await h3.close();
