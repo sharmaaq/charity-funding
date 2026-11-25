@@ -9,6 +9,8 @@ import { createRoutes } from './server/routes.js';
 import { sendJson } from './server/http.js';
 import { createStore } from './server/store/index.js';
 import { seedAll } from './server/seed/index.js';
+import { createFakeRunner } from './server/ai/fake-runner.js';
+import { runAI } from './server/ai/runners.js';
 
 const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'public');
 
@@ -52,8 +54,10 @@ export function createServer(options) {
   const auth = options.auth || createAuth(config, options.authOptions);
   const api = options.api || createApi();
   const devMode = Boolean(config.devUserEmail) && !config.onCloudRun;
+  // The AI runner: the real one, or a scripted fake (tests pass `ai`; AI_FAKE=1 does the same, in development mode only).
+  const ai = options.ai || (devMode && process.env.AI_FAKE === '1' ? { runAI: createFakeRunner({ delayMs: Number(process.env.AI_FAKE_DELAY_MS) || 30 }) } : { runAI });
   const routes = createRoutes({
-    store, config, now, limits: options.limits || {},
+    store, config, now, ai, limits: options.limits || {},
     devDefaults: devMode ? { members: { 'your-place': [config.devUserEmail, 'both@test.example'], 'our-time': ['b@test.example', 'both@test.example'] } } : null,
   });
   const hasAccess = async (user) => user.isAdmin || (await store.charitiesForUser(user.email)).length > 0;

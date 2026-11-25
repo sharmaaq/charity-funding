@@ -25,7 +25,7 @@ export default defineConfig({
     url: `http://127.0.0.1:${PORT}/healthz`,
     // The local server runs on the in-memory store with a development identity (refused on Cloud Run). Tests switch
     // identity with the dev_user_email cookie and reset the data through /api/dev/reset (see tests/e2e/base.js).
-    env: { PORT: String(PORT), DEV_USER_EMAIL: 'a@test.example' },
+    env: { PORT: String(PORT), DEV_USER_EMAIL: 'a@test.example', AI_FAKE: '1', AI_FAKE_DELAY_MS: '250' },
     reuseExistingServer: false,
     timeout: 30000,
   },

@@ -67,6 +67,11 @@ test.before(async () => {
     const snap = await addSnapshot(cid, f.appId);
     f.snapId = snap.id;
     f.snapFileId = snap.fileId;
+    await h.call(member, 'PUT', R(cid, '/discovery-settings'), { json: { brief: 'Isolation brief' } });
+    const run = await h.call(member, 'POST', R(cid, '/discover'), { json: {} });
+    assert.equal(run.status, 200, JSON.stringify(run.body));
+    f.jobId = run.body.jobId;
+    await idle(cid);
   }
 });
 test.after(() => h.close());
@@ -79,6 +84,10 @@ const CASES = [
   { p: 'GET /api/charities/:cid/workspace', build: (cid) => ['GET', R(cid, '/workspace')] },
   { p: 'PUT /api/charities/:cid/decisions/:oid', build: (cid) => ['PUT', R(cid, '/decisions/G-001'), { json: { workflow: 'watchlist', override: false } }] },
   { p: 'PUT /api/charities/:cid/notes/:oid', build: (cid) => ['PUT', R(cid, '/notes/G-001'), { json: { text: 'A note' } }] },
+  { p: 'GET /api/charities/:cid/ai/models', build: (cid) => ['GET', R(cid, '/ai/models')] },
+  { p: 'GET /api/charities/:cid/discover/active', build: (cid) => ['GET', R(cid, '/discover/active')] },
+  { p: 'POST /api/charities/:cid/discover', build: async (cid) => { await idle(cid); return ['POST', R(cid, '/discover'), { json: {} }]; } },
+  { p: 'GET /api/charities/:cid/jobs/:jid/events', build: (cid, f) => ['GET', R(cid, `/jobs/${f.jobId}/events`)] },
   { p: 'PUT /api/charities/:cid/discovery-settings', build: (cid) => ['PUT', R(cid, '/discovery-settings'), { json: { hideUnsuitable: true } }] },
   { p: 'GET /api/charities/:cid/profile', build: (cid) => ['GET', R(cid, '/profile')] },
   { p: 'PUT /api/charities/:cid/profile', build: (cid) => ['PUT', R(cid, '/profile'), { json: { overview: 'Changed overview' } }] },
@@ -122,6 +131,11 @@ const CASES = [
     return ['PUT', R(cid, `/applications/${f.appId}/proposal-replacement`), { json: { expectedRevision: cur && cur.application ? cur.application.draftRevision : 1, replacement: null } }];
   }, last: true },
 ];
+
+// A discovery run starts a background job; wait until the charity has none running before the next request.
+async function idle(cid) {
+  while ((await h.call('admin', 'GET', R(cid, '/discover/active'))).body.jobId) await new Promise((r) => setTimeout(r, 5));
+}
 
 async function ensureReplacement(cid, user, f) {
   const app = (await h.call(user, 'GET', R(cid, `/applications/${f.appId}`))).body.application;
@@ -247,7 +261,7 @@ test('decisions on different grants by different people both survive; a stale ap
   const ws = (await h.call('a', 'GET', R(cid, '/workspace'))).body;
   assert.equal(ws.grants['G-002'].workflow, 'watchlist');
   assert.equal(ws.grants['G-003'].workflow, 'passed');
-  assert.equal(ws.opportunities.length, 6);
+  assert.equal(ws.opportunities.filter((o) => o.foundBy !== 'ai').length, 6);
 
   const app = (await h.call('a', 'GET', R(cid, `/applications/${fx[cid].appId}`))).body.application;
   const save = (user, rev, text) => h.call(user, 'PUT', R(cid, `/applications/${app.id}/answers`), { json: { expectedRevision: rev, answers: { x: text } } });

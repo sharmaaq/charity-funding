@@ -4,6 +4,7 @@ import { createServer } from '../../server.js';
 import { readConfig } from '../../server/config.js';
 import { createMemoryStore } from '../../server/store/memory.js';
 import { seedAll } from '../../server/seed/index.js';
+import { createFakeRunner } from '../../server/ai/fake-runner.js';
 
 export const USERS = Object.freeze({
   a: 'a@test.example', // member of Your Place only
@@ -13,14 +14,14 @@ export const USERS = Object.freeze({
   nobody: 'nobody@test.example', // signed in, belongs to nothing
 });
 
-// options: { api, limits, members, defaultUser } (defaultUser: who a request is when it names no user)
+// options: { api, limits, members, defaultUser, ai } (ai: { runAI }; the default is the scripted fake, so no test ever calls a real AI) (defaultUser: who a request is when it names no user)
 export async function startHarness(options = {}) {
   const store = createMemoryStore();
   await seedAll(store);
   const members = options.members || { 'your-place': [USERS.a, USERS.both], 'our-time': [USERS.b, USERS.both] };
   for (const [cid, list] of Object.entries(members)) await store.updateCharity(cid, { members: list });
   const config = readConfig({ DEV_USER_EMAIL: options.defaultUser || USERS.nobody, ADMIN_EMAILS: USERS.admin });
-  const server = createServer({ config, store, api: options.api, limits: options.limits });
+  const server = createServer({ config, store, api: options.api, limits: options.limits, ai: options.ai || { runAI: createFakeRunner({ delayMs: 5 }) } });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   const base = `http://127.0.0.1:${server.address().port}`;
 

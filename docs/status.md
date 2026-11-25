@@ -1,6 +1,10 @@
 # Current status and handoff
 
-## Latest: S5-001 Phase A (word search and notes) built — 2026-11-25 (implementing model)
+## Latest: S5-001 Phase B (real discovery) built — 2026-11-25 (implementing model)
+
+- Discover now runs the platform's built-in Gemini on Vertex AI with Google Search grounding, scores each result, merges without touching decisions or notes, and shows progress and "What the AI searched". Header "AI model" menu (built-in models). Demo Discover removed. One real run recorded: gemini-3.8-flash, 101 s, 10 results. Local tests: unit 142 (1 skipped), integration 96, Playwright 312, all passing. `GOOGLE_CLOUD_PROJECT` set on staging only. See the [ticket](../project/sprint-5/tickets/S5-001-research-parity/ticket.md).
+
+## Earlier: S5-001 Phase A (word search and notes) built — 2026-11-25 (implementing model)
 
 - Search box over the grant list (Discovery tabs and Planning, "N of M" counts, no-match message with Clear search) and one shared note per grant (autosave, "Has notes" marker). Local tests: unit 132 (1 skipped), integration 87, Playwright 321, all passing. See the [ticket](../project/sprint-5/tickets/S5-001-research-parity/ticket.md). Phases B to D not started in this entry.
 

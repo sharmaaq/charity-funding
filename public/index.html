@@ -44,7 +44,6 @@
     <section id="ai-panel" class="ai-panel" aria-labelledby="ai-heading" hidden>
       <div class="ai-head">
         <h2 id="ai-heading">AI discovery</h2>
-        <span class="demo-tag">Demo</span>
       </div>
       <div class="ai-grid">
         <div class="ai-brief">
@@ -54,7 +53,7 @@
         </div>
         <div class="ai-side">
           <p id="brief-help" class="ai-help">Describe your sector, location, organisation size and funding priorities.</p>
-          <p class="ai-note">This demo uses sample grants. In the full service, AI discovery will use this brief for both manual searches and automatic background searches. Sample results are fixed in this demo; editing the brief does not change the grant selection.</p>
+          <p class="ai-note">Discovery searches the web for open and upcoming grants, then checks each one against your organisation information and this brief. Results are suggestions: check the funder's own page before you decide. The AI model is chosen in the header.</p>
           <div class="ai-run">
             <button type="button" id="discover-btn" class="btn primary">
               <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2 L14.6 9.4 L22 12 L14.6 14.6 L12 22 L9.4 14.6 L2 12 L9.4 9.4 Z" fill="currentColor"/></svg>
@@ -62,8 +61,10 @@
             </button>
             <p id="ai-status" class="ai-status" role="status" aria-live="polite"></p>
           </div>
+          <ul id="ai-progress" class="ai-progress" aria-label="Discovery progress" aria-live="polite" hidden></ul>
         </div>
       </div>
+      <div id="ai-last-run" class="ai-last-run" hidden></div>
     </section>
     <main id="main" tabindex="-1"></main>
   </div>

@@ -529,3 +529,16 @@ dialog.dialog::backdrop { background: rgba(35, 37, 81, 0.65); }
 .note-box textarea { width: 100%; box-sizing: border-box; padding: 8px 12px; font: inherit; border: 2px solid var(--purple); border-radius: 2px; background: #fff; color: var(--ink); resize: vertical; }
 .note-status { font-size: 0.875rem; color: var(--muted); min-height: 1.3em; }
 .note-status[data-state="failed"] { color: var(--bad-fg); font-weight: 800; }
+
+/* real discovery and the model menu (S5-001) */
+.ai-progress { list-style: none; margin: 8px 0 0; padding: 8px 12px; background: #fff; border: 1px solid var(--line); border-radius: 2px; max-height: 9rem; overflow: auto; font-size: 0.9375rem; }
+.ai-progress[hidden] { display: none; }
+.ai-progress li { margin: 0 0 2px; overflow-wrap: anywhere; }
+.ai-last-run { margin: 12px 0 0; }
+.ai-last-run[hidden] { display: none; }
+.ai-last-run details { background: #fff; border-radius: 2px; padding: 0 14px; }
+.ai-last-run summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-weight: 800; color: var(--purple); }
+.ai-last-run ul { margin: 0 0 8px; padding-left: 20px; overflow-wrap: anywhere; }
+.model-label { font-weight: 800; }
+.fit-score { font-weight: 800; color: var(--purple); }
+.found-by { font-size: 0.875rem; color: var(--muted); }

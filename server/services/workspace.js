@@ -25,6 +25,7 @@ export function createWorkspaceService(store, options = {}) {
       for (const n of noteRecs) if (grants[n.id] && n.text) notes[n.id] = { text: n.text, updatedAt: n.updatedAt, updatedBy: n.updatedBy };
       const out = { opportunities, funderPages, grants, notes, hideUnsuitable: !!s.hideUnsuitable };
       if (typeof s.brief === 'string') out.brief = s.brief;
+      if (s.lastRun) out.lastRun = s.lastRun;
       if (appMeta && appMeta.defaults) out.applicationDefaults = appMeta.defaults;
       if (typeof s.freshId === 'string' && grants[s.freshId]) out.freshId = s.freshId;
       return out;

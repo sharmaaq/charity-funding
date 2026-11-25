@@ -16,6 +16,10 @@ import { validateFunderPage } from '../public/js/funder-pages.js';
 import { createOrgService } from './services/org.js';
 import { createApplicationService } from './services/applications.js';
 import { createWorkspaceService } from './services/workspace.js';
+import { createDiscoveryService } from './services/discovery.js';
+import { createJobs } from './ai/jobs.js';
+import { runAI } from './ai/runners.js';
+import { DEFAULT_MODEL, availableModels, publicModel, resolveModel } from './ai/models.js';
 import { DEFAULT_THEME, GENERIC_CHARITY_NOTICE, seedCharity, seedAll, CHARITIES } from './seed/index.js';
 
 const WRITE = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -46,10 +50,12 @@ function validateNewCharity(input) {
 }
 
 // ctx: { store, config, now, limits, dev }   dev: true only in local/test mode (memory store, DEV_USER_EMAIL)
-export function createRoutes({ store, config, now = () => new Date(), limits = {}, devDefaults = null }) {
+export function createRoutes({ store, config, now = () => new Date(), limits = {}, devDefaults = null, ai = { runAI } }) {
   const org = createOrgService(store, { now, limits });
   const apps = createApplicationService(store, { now, limits });
   const workspace = createWorkspaceService(store, { now });
+  const jobs = createJobs();
+  const discovery = createDiscoveryService({ store, org, jobs, ai, now, runTimeoutMs: limits.aiRunTimeoutMs });
   const routes = [];
   const add = (method, pattern, handler) => {
     const keys = [];
@@ -90,6 +96,32 @@ export function createRoutes({ store, config, now = () => new Date(), limits = {
   add('PUT', `${P}/decisions/:oid`, C(async ({ cid, req, res, params }) => sendJson(res, 200, await workspace.setDecision(cid, rid({ params }, 'oid'), await readJson(req)))));
   add('PUT', `${P}/notes/:oid`, C(async ({ cid, req, res, params, user }) => sendJson(res, 200, await workspace.setNote(cid, rid({ params }, 'oid'), await readJson(req), user.email))));
   add('PUT', `${P}/discovery-settings`, C(async ({ cid, req, res }) => sendJson(res, 200, await workspace.updateSettings(cid, await readJson(req)))));
+
+  // AI: the model picker, discovery runs and the live progress of any job (server-sent events)
+  add('GET', `${P}/ai/models`, C(async ({ res }) => sendJson(res, 200, { default: DEFAULT_MODEL, models: availableModels({}).map(publicModel) })));
+  add('GET', `${P}/discover/active`, C(async ({ cid, res }) => { const j = discovery.active(cid); sendJson(res, 200, { jobId: j ? j.id : null }); }));
+  add('POST', `${P}/discover`, C(async ({ cid, req, res, user }) => {
+    const b = await readJson(req);
+    const job = await discovery.start(cid, user.email, resolveModel(typeof b.model === 'string' ? b.model : '', {}));
+    sendJson(res, 200, { jobId: job.id });
+  }));
+  add('GET', `${P}/jobs/:jid/events`, C(async ({ cid, req, res, params }) => {
+    const job = jobs.get(cid, params.jid);
+    if (!job) return sendJson(res, 404, notFoundBody());
+    res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-store', 'X-Accel-Buffering': 'no', 'X-Content-Type-Options': 'nosniff' });
+    const write = (e) => { if (!res.writableEnded) res.write(`data: ${JSON.stringify(e)}\n\n`); };
+    const finished = () => job.events.some((e) => e.type === 'done' || e.type === 'error');
+    job.events.forEach(write);
+    if (finished()) { res.end(); return undefined; }
+    await new Promise((resolve) => {
+      const beat = setInterval(() => { if (!res.writableEnded) res.write(': ping\n\n'); }, 15000);
+      const stop = () => { clearInterval(beat); job.listeners.delete(listener); resolve(); };
+      const listener = (e) => { write(e); if (e.type === 'done' || e.type === 'error') { res.end(); stop(); } };
+      job.listeners.add(listener);
+      req.on('close', stop);
+    });
+    return undefined;
+  }));
 
   // organisation profile
   add('GET', `${P}/profile`, C(async ({ cid, res }) => sendJson(res, 200, await org.getProfile(cid))));

@@ -1,10 +1,8 @@
-import { runMockDiscovery } from './discovery.js';
 import { isTimingPreview, withPreviewTiming } from './preview.js';
 import { nextChangeAt, timingMarkers } from './timing.js';
 import { createOrganisation, isOrgHash, parseOrgHash } from './org/index.js';
 import { createApplication, isApplicationHash, parseApplicationHash, appHash, UNAVAILABLE_TEXT } from './application/index.js';
 import {
-  applyDiscovery,
   setBrief,
   availableActions,
   applyAction,
@@ -23,10 +21,9 @@ import { createApplicationRepository } from './application/repository.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
-// Test hooks: a fixed clock and a replaceable discovery runner (set before the app starts).
+// Test hook: a fixed clock (set before the app starts).
 const injectedNow = window.__DEMO_NOW__ !== undefined && window.__DEMO_NOW__ !== null ? new Date(window.__DEMO_NOW__) : null;
 const now = () => (injectedNow && !Number.isNaN(injectedNow.getTime()) ? new Date(injectedNow.getTime()) : new Date());
-const runDiscovery = typeof window.__DEMO_RUN_DISCOVERY__ === 'function' ? window.__DEMO_RUN_DISCOVERY__ : runMockDiscovery;
 const previewTiming = isTimingPreview(location.search);
 
 function getStorage() {
@@ -48,6 +45,8 @@ const briefEl = document.getElementById('brief');
 const briefErrorEl = document.getElementById('brief-error');
 const discoverBtn = document.getElementById('discover-btn');
 const aiStatusEl = document.getElementById('ai-status');
+const aiProgressEl = document.getElementById('ai-progress');
+const aiLastRunEl = document.getElementById('ai-last-run');
 const brandLink = document.getElementById('brand-link');
 
 // ---------- sign-in, charity and saved data ----------
@@ -70,6 +69,10 @@ try {
   await new Promise(() => {}); // nothing else can run without a signed-in identity
 }
 
+// The AI model menu (REQ-043). The choice is remembered in this browser, per charity.
+let modelList = [];
+let currentModelId = '';
+const modelKey = () => `cf-ai-model:${charity.id}`;
 const charity = pickCharity(me.charities, readLastCharity(storage));
 renderAccount();
 if (!charity) {
@@ -93,6 +96,14 @@ const services = {
   org: createOrgRepository({ cid: CID, now: () => now() }),
   apps: createApplicationRepository({ cid: CID, userEmail: me.email }),
 };
+try {
+  const m = await api(`/api/charities/${encodeURIComponent(CID)}/ai/models`);
+  modelList = m.models || [];
+  let saved = null;
+  try { saved = storage && storage.getItem(modelKey()); } catch { /* ignore */ }
+  currentModelId = modelList.some((x) => x.id === saved) ? saved : (modelList.some((x) => x.id === m.default) ? m.default : (modelList[0] ? modelList[0].id : ''));
+  renderAccount();
+} catch { /* the menu is missing; Discover then fails with a message */ }
 let state = stateFromWorkspace(workspace);
 const SAVED_NOTES = Object.fromEntries(Object.entries(workspace.notes || {}).map(([id, n]) => [id, n.text]));
 const NOTES = Object.fromEntries(Object.entries(workspace.notes || {}).map(([id, n]) => [id, { ...n }])); // { [grantId]: { text, updatedAt, updatedBy } }
@@ -122,6 +133,15 @@ function renderAccount() {
       location.reload(); // loads the other charity's data and look together
     });
     parts.push(h('label', { class: 'sr-only', for: 'charity-switch', text: 'Charity' }), select);
+  }
+  if (modelList.length > 0) {
+    const pick = h('select', { id: 'ai-model', 'data-testid': 'ai-model' },
+      modelList.map((m) => h('option', { value: m.id, selected: m.id === currentModelId ? true : null }, m.label)));
+    pick.addEventListener('change', () => {
+      currentModelId = pick.value;
+      try { storage && storage.setItem(modelKey(), currentModelId); } catch { /* the choice just is not remembered */ }
+    });
+    parts.push(h('label', { class: 'model-label', for: 'ai-model', text: 'AI model' }), pick);
   }
   parts.push(h('span', { class: 'who', 'data-testid': 'signed-in-as', text: `Signed in as ${me.email}` }), h('a', { href: SIGN_OUT_HREF, 'data-testid': 'sign-out' }, 'Sign out'));
   accountEl.replaceChildren(...parts);
@@ -394,6 +414,11 @@ function doFilter(hide) {
 }
 
 // ---------- rendering ----------
+function longDay(ymd) {
+  const d = new Date(`${ymd}T12:00:00Z`);
+  return Number.isNaN(d.getTime()) ? String(ymd || '') : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+}
+
 function suitabilityBadge(grant, entry) {
   const eff = effectiveSuitability(grant, entry);
   const text = eff === 'suitable' ? 'Suitable' : eff === 'unsuitable' ? 'Unsuitable' : 'Suitable - manager override';
@@ -428,6 +453,7 @@ function grantItem(grant, entry, actionNames, showMarkers = false, extra = null)
         h('span', { class: 'markers' }, [...(showMarkers ? markersFor(grant) : []), ...(hasNote(grant.id) ? ['notes'] : [])].map(markerBadge))),
       h('p', { class: 'funder', text: grant.funder }),
       h('p', { class: 'summary', text: grant.summary }),
+      grant.foundBy === 'ai' ? h('p', { class: 'found-by', 'data-testid': 'found-by', text: `Found by AI on ${longDay(grant.foundAt)}` }) : null,
       h('a', { class: 'link', href: grant.guidanceUrl, target: '_blank', rel: 'noopener noreferrer' }, `${grant.guidanceLabel} (opens in a new tab)`),
     ),
     h('div', { class: 'money' },
@@ -436,6 +462,7 @@ function grantItem(grant, entry, actionNames, showMarkers = false, extra = null)
     ),
     h('div', { class: 'suit' },
       suitabilityBadge(grant, entry),
+      Number.isFinite(grant.fitScore) ? h('p', { class: 'fit-score', 'data-testid': 'fit-score', text: `Fit score ${grant.fitScore} out of 100` }) : null,
       h('p', { class: 'reason', text: reasonText(grant, entry) }),
     ),
     h('div', { class: 'actions' }, actions),
@@ -446,6 +473,9 @@ function grantItem(grant, entry, actionNames, showMarkers = false, extra = null)
         h('p', null, h('strong', null, 'Original assessment: '), grant.assessment === 'suitable' ? 'Suitable' : 'Unsuitable'),
         h('p', { class: 'original-reason' }, h('strong', null, 'Original reason: '), grant.reason),
         eff === 'override' ? h('p', null, 'The manager override reflects a decision made in this workspace, not a change to the funder\'s rules.') : null,
+        Array.isArray(grant.barriers) && grant.barriers.length > 0
+          ? h('div', { 'data-testid': 'barriers' }, h('p', null, h('strong', null, 'Barriers:')), h('ul', null, grant.barriers.map((b) => h('li', { text: b }))))
+          : null,
         h('p', null, h('strong', null, 'Source evidence:')),
         h('ul', null, grant.sources.map((s) => h('li', null, h('a', { href: s.url, target: '_blank', rel: 'noopener noreferrer' }, s.label)))),
         noteEditor(grant),
@@ -765,52 +795,122 @@ document.addEventListener('visibilitychange', () => {
   else if (currentRoute().area !== 'organisation' && currentRoute().area !== 'application') render({ focus: false });
 });
 
-function showFreshResult(grantId) {
-  pendingMessage = { text: 'Demo discovery complete - 1 grant marked as new.' };
-  if (location.hash !== VIEW_HASH.new) {
-    keepMessage = true;
-    location.hash = VIEW_HASH.new; // hashchange triggers render
-  } else {
-    render();
+const progressLine = (text) => {
+  aiProgressEl.append(h('li', { text }));
+  aiProgressEl.hidden = false;
+  aiProgressEl.scrollTop = aiProgressEl.scrollHeight;
+};
+
+// Follows a job's server-sent events from the start (the server replays them, so a reload or a dropped connection is
+// safe). Resolves with the job's result, rejects with its error.
+function followJob(jobId) {
+  const url = `/api/charities/${encodeURIComponent(CID)}/jobs/${encodeURIComponent(jobId)}/events`;
+  return new Promise((resolve, reject) => {
+    let received = 0;
+    let retries = 0;
+    const open = () => {
+      let idx = 0;
+      const skipTo = received;
+      const es = new EventSource(url);
+      es.onmessage = (m) => {
+        idx += 1;
+        if (idx <= skipTo) return;
+        received = idx;
+        retries = 0;
+        let e;
+        try { e = JSON.parse(m.data); } catch { return; }
+        if (e.type === 'status') progressLine(e.text);
+        else if (e.type === 'tool') progressLine(`Searching: ${e.detail}`);
+        else if (e.type === 'done') { es.close(); resolve(e.result); }
+        else if (e.type === 'error') { es.close(); reject(new Error(e.error || 'The run failed.')); }
+      };
+      es.onerror = () => {
+        es.close();
+        retries += 1;
+        if (retries > 5) { reject(new Error('Lost contact with the run. Reload the page to see whether it finished.')); return; }
+        setTimeout(open, 1500);
+      };
+    };
+    open();
+  });
+}
+
+// Re-reads the saved grants after a run. The brief and the manager's decisions come back exactly as saved.
+async function reloadWorkspace() {
+  const ws = await api(`/api/charities/${encodeURIComponent(CID)}/workspace`);
+  OPPS.splice(0, OPPS.length, ...ws.opportunities);
+  state = stateFromWorkspace(ws);
+  workspace.lastRun = ws.lastRun;
+}
+
+function renderLastRun() {
+  const r = workspace.lastRun;
+  if (!r) { aiLastRunEl.replaceChildren(); aiLastRunEl.hidden = true; return; }
+  const when = new Date(r.at).toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  aiLastRunEl.replaceChildren(h('details', { 'data-testid': 'last-run' },
+    h('summary', { text: 'What the AI searched' }),
+    h('div', null,
+      h('p', { 'data-testid': 'last-run-summary', text: `${when}, ${r.modelLabel || r.model}. ${r.counts.new} new, ${r.counts.updated} updated${r.counts.dropped ? `, ${r.counts.dropped} ignored because they could not be checked` : ''}.` }),
+      r.queries.length ? h('div', null, h('p', null, h('strong', null, 'Searches:')), h('ul', { 'data-testid': 'last-run-queries' }, r.queries.map((q) => h('li', { text: q })))) : null,
+      r.sources.length ? h('div', null, h('p', null, h('strong', null, 'Pages read:')), h('ul', { 'data-testid': 'last-run-sources' }, r.sources.map((x) => h('li', null, h('a', { href: x.url, target: '_blank', rel: 'noopener noreferrer' }, x.title || x.url))))) : null,
+      r.notes ? h('p', { 'data-testid': 'last-run-notes', text: r.notes }) : null,
+      h('p', { class: 'ai-note', text: 'AI results are suggestions. Check each funder\'s own page before you decide.' }))));
+  aiLastRunEl.hidden = false;
+}
+
+async function finishRun(jobId, { announceDone = true } = {}) {
+  let failed = null;
+  let result = null;
+  try { result = await followJob(jobId); } catch (e) { failed = e; }
+  try { await reloadWorkspace(); } catch { /* the grants shown stay as they were */ }
+  setBusy(false);
+  renderLastRun();
+  if (failed) {
+    announce(`Discovery could not be completed. ${failed.message}`);
+    discoverBtn.focus();
+    render({ focus: false });
+    return;
   }
-  const el = document.querySelector('li.grant[data-id="' + grantId + '"]');
-  if (el) el.scrollIntoView({ block: 'nearest' });
+  const done = `Discovery complete: ${result.new} new, ${result.updated} updated.`;
+  pendingMessage = announceDone ? { text: done, hash: VIEW_HASH.new, link: 'Go to New' } : null;
+  const route = currentRoute();
+  if (route.area === 'organisation' || route.area === 'application') { if (pendingMessage) { announce(pendingMessage.text, pendingMessage.hash, pendingMessage.link); pendingMessage = null; } return; }
+  render({ focus: false });
 }
 
 async function onDiscover() {
   if (busy) return;
   saveBrief();
-  const brief = briefEl.value;
-  if (brief.trim() === '') {
+  const text = briefEl.value;
+  if (text.trim() === '') {
     showBriefError('Enter your discovery criteria first.');
     briefEl.focus();
     return;
   }
   showBriefError('');
   setBusy(true);
-  let failed = false;
+  aiProgressEl.replaceChildren();
+  liveEl.replaceChildren();
+  let jobId;
   try {
-    await runDiscovery({ brief, delayMs: 1000 });
-  } catch {
-    failed = true;
-  }
-  setBusy(false);
-  if (failed) {
-    announce('Discovery could not be completed. Please try again.');
+    await saveChain; // the brief is saved before the server reads it
+    ({ jobId } = await api(`/api/charities/${encodeURIComponent(CID)}/discover`, { method: 'POST', json: { model: currentModelId } }));
+  } catch (e) {
+    setBusy(false);
+    announce(e && e.code === 'conflict' ? 'A discovery run is already in progress.' : `Discovery could not be started. ${e && e.message ? e.message : 'Please try again.'}`);
     discoverBtn.focus();
     return;
   }
-  const result = applyDiscovery(state, OPPS);
-  if (result.grantId === null) {
-    announce('No demo grant available to rediscover. Restore a suitable grant to New to repeat the demo.');
-    discoverBtn.focus();
-    return;
-  }
-  commit(result.state);
-  updateNotice();
-  showFreshResult(result.grantId);
+  await finishRun(jobId);
 }
 discoverBtn.addEventListener('click', onDiscover);
+
+// A run started earlier (before a reload, or by a colleague) is picked up and followed.
+renderLastRun();
+try {
+  const { jobId } = await api(`/api/charities/${encodeURIComponent(CID)}/discover/active`);
+  if (jobId) { setBusy(true); aiProgressEl.replaceChildren(); void finishRun(jobId); }
+} catch { /* nothing to follow */ }
 
 // ---------- marker refresh at the next London midnight or closing instant ----------
 let tickTimer = null;
