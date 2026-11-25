@@ -62,6 +62,7 @@ Built by the implementing model, phase by phase (plan.md). Test counts are as re
 - Any member can connect or remove a key (D9: the charity pays). Keys are per charity; another charity never sees them.
 - Tests (fake KMS and fake key check; no real provider is called): unit 152 pass (1 skipped), integration 113 pass, Playwright 348 pass. New: `tests/unit/kms.test.js` (cloud call shape with a stubbed fetch, local round trip, tampering, last four only, cache), `tests/integration/ai-keys.test.js` (check before save, stored value is the blob, per-request key resolution for Discover, Assess and Discuss, removal, per-charity isolation, 404 for non-members, 503 without a KMS, and a scan of every response for the key or `enc`), `tests/e2e/settings.spec.js`; the isolation suite covers the three new routes.
 - Live check of the real KMS key from the implementer's machine with the local gcloud login (no access change made): encrypt and decrypt of a dummy string succeeded (the user account has access to the key). The real provider key checks (`testKey` against Anthropic, OpenAI and Google) and real calls with a charity's key were not run: no real key was available and none was invented.
+- Shipped Phase D: commit 4f62668; staging revision charity-funding-staging-00008-mjx (302 to accounts.google.com). `GOOGLE_CLOUD_PROJECT` and `KMS_KEY` are both still on that revision.
 - Not changed: promotion. Production needs `GOOGLE_CLOUD_PROJECT` and `KMS_KEY`; `deploy\promote.ps1` applies `prodEnv` from `deploy\apps.json` as set up by Claude.
 
 ## Handoff
