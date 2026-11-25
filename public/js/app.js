@@ -14,6 +14,8 @@ import {
   setHideUnsuitable,
   stateFromWorkspace,
 } from './state.js';
+import { filterGrants, searchWords } from './search.js';
+import { NOTE_MAX } from './notes.js';
 import { api } from './remote/http.js';
 import { SIGN_OUT_HREF, cleanOldBrowserData, pickCharity, readLastCharity, splitWordmark, writeLastCharity } from './remote/session.js';
 import { createRepository as createOrgRepository } from './org/repository.js';
@@ -92,6 +94,9 @@ const services = {
   apps: createApplicationRepository({ cid: CID, userEmail: me.email }),
 };
 let state = stateFromWorkspace(workspace);
+const SAVED_NOTES = Object.fromEntries(Object.entries(workspace.notes || {}).map(([id, n]) => [id, n.text]));
+const NOTES = Object.fromEntries(Object.entries(workspace.notes || {}).map(([id, n]) => [id, { ...n }])); // { [grantId]: { text, updatedAt, updatedBy } }
+let searchText = ''; // the word search; kept while switching tabs, cleared on reload
 let storageOk = true;
 const APPLICATION_DEFAULTS = workspace.applicationDefaults || null;
 
@@ -179,6 +184,7 @@ function h(tag, attrs, ...children) {
 
 const MARKERS = {
   fresh: { label: 'New', icon: 'M12 2 L14.6 9.4 L22 12 L14.6 14.6 L12 22 L9.4 14.6 L2 12 L9.4 9.4 Z' },
+  notes: { label: 'Has notes', icon: 'M5 19 L6 14 L16 4 L20 8 L10 18 Z M14 6 L18 10' },
   upcoming: { label: 'Upcoming', icon: 'M4 6 H20 V20 H4 Z M4 10.5 H20 M8.5 3 V7.5 M15.5 3 V7.5' },
   dueSoon: { label: 'Due soon', icon: 'M12 3 A9 9 0 1 0 12.01 3 Z M12 7.5 V12.5 L15.5 14.5' },
 };
@@ -257,6 +263,81 @@ function commit(next) {
   return true;
 }
 document.documentElement.dataset.pending = '0';
+
+// ---------- notes (REQ-039) ----------
+const NOTE_DELAY_MS = 1000;
+const NOTE_RETRY_MS = 5000;
+const noteTimers = new Map(); // grantId -> timer for the next save
+const noteSent = new Map(); // grantId -> the text last known saved on the server
+const noteStatus = new Map(); // grantId -> 'saving' | 'saved' | 'failed'
+const hasNote = (id) => Boolean(NOTES[id] && NOTES[id].text);
+const savedNoteText = (id) => (noteSent.has(id) ? noteSent.get(id) : (SAVED_NOTES[id] || ''));
+
+function showNoteStatus(id) {
+  const el = document.querySelector(`[data-note-status="${CSS.escape(id)}"]`);
+  if (!el) return;
+  const st = noteStatus.get(id);
+  el.textContent = st === 'saved' ? 'Saved' : st === 'failed' ? 'Not saved, will retry' : st === 'saving' ? 'Saving...' : '';
+  el.dataset.state = st || '';
+}
+
+function refreshNoteMarker(id) {
+  for (const li of document.querySelectorAll(`li.grant[data-id="${CSS.escape(id)}"]`)) {
+    const box = li.querySelector('.markers');
+    const cur = box && box.querySelector('.marker-notes');
+    if (hasNote(id) && box && !cur) box.append(markerBadge('notes'));
+    else if (!hasNote(id) && cur) cur.remove();
+  }
+}
+
+function saveNote(id) {
+  clearTimeout(noteTimers.get(id));
+  noteTimers.delete(id);
+  const text = hasNote(id) ? NOTES[id].text : '';
+  if (text === savedNoteText(id)) return;
+  noteStatus.set(id, 'saving');
+  showNoteStatus(id);
+  pendingSaves += 1;
+  document.documentElement.dataset.pending = String(pendingSaves);
+  saveChain = saveChain.then(() => api(`/api/charities/${encodeURIComponent(CID)}/notes/${encodeURIComponent(id)}`, { method: 'PUT', json: { text }, keepalive: true })).then(
+    () => {
+      storageOk = true;
+      noteSent.set(id, text);
+      noteStatus.set(id, (hasNote(id) ? NOTES[id].text : '') === text ? 'saved' : 'saving');
+    },
+    () => {
+      noteStatus.set(id, 'failed');
+      noteTimers.set(id, setTimeout(() => saveNote(id), NOTE_RETRY_MS));
+    },
+  ).then(() => {
+    pendingSaves -= 1;
+    document.documentElement.dataset.pending = String(pendingSaves);
+    showNoteStatus(id);
+    updateNotice();
+  });
+}
+
+function noteEditor(grant) {
+  const id = grant.id;
+  const inputId = `note-${id}`;
+  const ta = h('textarea', { id: inputId, rows: 4, maxlength: String(NOTE_MAX), 'data-testid': 'note-input', 'aria-describedby': `${inputId}-status` });
+  ta.value = hasNote(id) ? NOTES[id].text : '';
+  ta.addEventListener('input', () => {
+    if (ta.value === '') delete NOTES[id];
+    else NOTES[id] = { ...(NOTES[id] || {}), text: ta.value };
+    refreshNoteMarker(id);
+    noteStatus.delete(id);
+    showNoteStatus(id);
+    clearTimeout(noteTimers.get(id));
+    noteTimers.set(id, setTimeout(() => saveNote(id), NOTE_DELAY_MS));
+  });
+  ta.addEventListener('blur', () => { if (noteTimers.has(id)) saveNote(id); });
+  const status = h('span', { class: 'note-status', id: `${inputId}-status`, role: 'status', 'data-note-status': id, 'data-testid': 'note-status' });
+  queueMicrotask(() => showNoteStatus(id));
+  return h('div', { class: 'note-box' }, h('label', { for: inputId, text: 'Notes' }), ta, status);
+}
+
+window.addEventListener('pagehide', () => { for (const id of [...noteTimers.keys()]) saveNote(id); });
 
 function updateNotice() {
   noticeEl.hidden = storageOk;
@@ -343,9 +424,8 @@ function grantItem(grant, entry, actionNames, showMarkers = false, extra = null)
   const eff = effectiveSuitability(grant, entry);
   return h('li', { class: 'grant', 'data-id': grant.id, 'data-suitability': eff },
     h('div', { class: 'c-grant' },
-      showMarkers
-        ? h('div', { class: 'name-row' }, h('h2', { text: grant.name }), h('span', { class: 'markers' }, markersFor(grant).map(markerBadge)))
-        : h('h2', { text: grant.name }),
+      h('div', { class: 'name-row' }, h('h2', { text: grant.name }),
+        h('span', { class: 'markers' }, [...(showMarkers ? markersFor(grant) : []), ...(hasNote(grant.id) ? ['notes'] : [])].map(markerBadge))),
       h('p', { class: 'funder', text: grant.funder }),
       h('p', { class: 'summary', text: grant.summary }),
       h('a', { class: 'link', href: grant.guidanceUrl, target: '_blank', rel: 'noopener noreferrer' }, `${grant.guidanceLabel} (opens in a new tab)`),
@@ -368,6 +448,7 @@ function grantItem(grant, entry, actionNames, showMarkers = false, extra = null)
         eff === 'override' ? h('p', null, 'The manager override reflects a decision made in this workspace, not a change to the funder\'s rules.') : null,
         h('p', null, h('strong', null, 'Source evidence:')),
         h('ul', null, grant.sources.map((s) => h('li', null, h('a', { href: s.url, target: '_blank', rel: 'noopener noreferrer' }, s.label)))),
+        noteEditor(grant),
       ),
     ),
   );
@@ -382,9 +463,38 @@ function grantList(grants, actionsFor, showMarkers = false, extra = null) {
   );
 }
 
+function searchActive() {
+  return searchWords(searchText).length > 0;
+}
+
+function searchBar() {
+  const input = h('input', { type: 'search', id: 'grant-search', 'data-testid': 'search', autocomplete: 'off', value: searchText });
+  input.addEventListener('input', () => {
+    searchText = input.value;
+    render({ focus: false });
+    const next = document.getElementById('grant-search');
+    if (next) { next.focus(); next.setSelectionRange(next.value.length, next.value.length); }
+  });
+  return h('div', { class: 'search' }, h('label', { for: 'grant-search', text: 'Search grants' }), input);
+}
+
+function noMatch() {
+  return h('div', { class: 'empty', 'data-testid': 'no-match' },
+    h('p', null, h('strong', { text: `No grants match "${searchText}".` })),
+    h('button', { type: 'button', class: 'btn', 'data-testid': 'clear-search', onclick: () => { searchText = ''; render({ focus: false }); document.getElementById('grant-search')?.focus(); } }, 'Clear search'));
+}
+
+function countLabel(view) {
+  const inView = OPPS.filter((g) => state.grants[g.id] && state.grants[g.id].workflow === view);
+  const total = inView.length;
+  if (!searchActive()) return { text: String(total), aria: `${total} grants` };
+  const m = filterGrants(inView, NOTES, searchText).length;
+  return { text: `${m} of ${total}`, aria: `${m} of ${total} grants match` };
+}
+
 function renderDiscovery(view) {
   const counts = {};
-  for (const v of ['new', 'watchlist', 'passed']) counts[v] = selectView(state, OPPS, v).total;
+  for (const v of ['new', 'watchlist', 'passed']) counts[v] = countLabel(v);
   const sel = selectView(state, OPPS, view);
   const filterable = view === 'new' || view === 'watchlist';
 
@@ -392,7 +502,7 @@ function renderDiscovery(view) {
     ['new', 'watchlist', 'passed'].map((v) =>
       h('li', null,
         h('a', { href: VIEW_HASH[v], 'aria-current': v === view ? 'page' : null, 'data-tab': v },
-          VIEW_LABELS[v], h('span', { class: 'count', 'aria-label': `${counts[v]} grants`, text: String(counts[v]) })))),
+          VIEW_LABELS[v], h('span', { class: 'count', 'aria-label': counts[v].aria, text: counts[v].text })))),
   );
 
   const parts = [];
@@ -402,6 +512,7 @@ function renderDiscovery(view) {
       h('a', { href: location.pathname + (location.hash || DEFAULT_ROUTE) }, 'Back to the normal view')));
   }
   parts.push(tabs);
+  parts.push(searchBar());
 
   if (filterable) {
     const seg = h('div', { class: 'segmented', role: 'group', 'aria-label': 'Suitability filter', 'data-testid': 'filter' },
@@ -417,8 +528,11 @@ function renderDiscovery(view) {
     parts.push(toolbar);
   }
 
-  if (sel.visible.length > 0) {
-    parts.push(grantList(sel.visible, (g, e) => availableActions(g, e), true));
+  const shown = filterGrants(sel.visible, NOTES, searchText);
+  if (shown.length > 0) {
+    parts.push(grantList(shown, (g, e) => availableActions(g, e), true));
+  } else if (searchActive() && sel.visible.length > 0) {
+    parts.push(noMatch());
   } else if (sel.hiddenCount === 0) {
     parts.push(emptyState(view));
   }
@@ -455,10 +569,14 @@ function renderPlanning() {
     placeholderNotice(),
     h('p', null, 'Grants you chose to plan an application for in Discovery appear here. Nothing on this page is submitted anywhere.'),
   ];
-  if (sel.visible.length > 0) {
-    parts.push(grantList(sel.visible, () => ['abandon'], false, (g) => (g.id === 'G-001'
+  const shown = filterGrants(sel.visible, NOTES, searchText);
+  if (sel.visible.length > 0) parts.push(searchBar());
+  if (shown.length > 0) {
+    parts.push(grantList(shown, () => ['abandon'], false, (g) => (g.id === 'G-001'
       ? application.planningCard(g.id)
       : h('p', { class: 'app-unavailable', 'data-testid': 'app-unavailable', text: UNAVAILABLE_TEXT }))));
+  } else if (sel.visible.length > 0) {
+    parts.push(noMatch());
   } else {
     parts.push(h('div', { class: 'empty', 'data-testid': 'empty' },
       h('p', null, h('strong', null, 'No grants selected for planning.')),

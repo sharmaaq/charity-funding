@@ -88,6 +88,7 @@ export function createRoutes({ store, config, now = () => new Date(), limits = {
   // workspace: opportunities, decisions, discovery settings
   add('GET', `${P}/workspace`, C(async ({ cid, res }) => sendJson(res, 200, await workspace.load(cid))));
   add('PUT', `${P}/decisions/:oid`, C(async ({ cid, req, res, params }) => sendJson(res, 200, await workspace.setDecision(cid, rid({ params }, 'oid'), await readJson(req)))));
+  add('PUT', `${P}/notes/:oid`, C(async ({ cid, req, res, params, user }) => sendJson(res, 200, await workspace.setNote(cid, rid({ params }, 'oid'), await readJson(req), user.email))));
   add('PUT', `${P}/discovery-settings`, C(async ({ cid, req, res }) => sendJson(res, 200, await workspace.updateSettings(cid, await readJson(req)))));
 
   // organisation profile

@@ -518,3 +518,14 @@ dialog.dialog::backdrop { background: rgba(35, 37, 81, 0.65); }
   .doc-list { border-top: 1px solid var(--line); }
   .bid-row:last-child, .doc-row:last-child { border-bottom: 0; }
 }
+
+/* word search and notes (S5-001) */
+.search { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 16px; }
+.search label { font-weight: 800; color: var(--purple); }
+.search input { flex: 1 1 240px; max-width: 28rem; min-height: 48px; padding: 6px 12px; font: inherit; border: 2px solid var(--purple); border-radius: 2px; background: #fff; color: var(--ink); }
+.marker-notes { background: var(--lilac); color: var(--purple); border-color: var(--purple); }
+.note-box { display: grid; gap: 6px; margin-top: 8px; }
+.note-box label { font-weight: 800; color: var(--purple); }
+.note-box textarea { width: 100%; box-sizing: border-box; padding: 8px 12px; font: inherit; border: 2px solid var(--purple); border-radius: 2px; background: #fff; color: var(--ink); resize: vertical; }
+.note-status { font-size: 0.875rem; color: var(--muted); min-height: 1.3em; }
+.note-status[data-state="failed"] { color: var(--bad-fg); font-weight: 800; }

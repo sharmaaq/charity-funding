@@ -22,7 +22,13 @@ REQ-038 to REQ-043 in [spec.md](spec.md). REQ-040 replaces the demo Discover run
 
 ## Implementation and validation
 
-Not started.
+Built by the implementing model, phase by phase (plan.md). Test counts are as reported by the implementer.
+
+### Phase A: word search and notes (REQ-038, REQ-039) - 2026-11-25
+
+- Built: `public/js/search.js` (pure matching), `public/js/notes.js` (limit and validation, shared with the server), `notes` collection, `workspace.setNote` and `PUT /api/charities/{cid}/notes/{grantId}`, notes in the workspace load, the search box (Discovery tabs and Planning), "N of M" tab counts, the no-match message with Clear search, the Notes control in each card's details (autosave after about 1 s and on blur, "Saved" / "Not saved, will retry" with a retry every 5 s) and the "Has notes" marker.
+- Tests: unit 132 pass (1 skipped, as before), integration 87 pass, Playwright 321 pass (15 new, three viewports). New: `tests/unit/search-notes.test.js`, `tests/integration/notes.test.js`, `tests/e2e/search-notes.spec.js`; the isolation suite gained the notes route (non-members get 404 and change nothing).
+- Search matches name, funder, summary, reason and note; an empty search shows the lists as before.
 
 ## Handoff
 

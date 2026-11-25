@@ -3,6 +3,7 @@
 import { ServiceError } from '../errors.js';
 import { usableFunderPages } from '../../public/js/funder-pages.js';
 import { WORKFLOWS } from '../../public/js/state.js';
+import { validateNote } from '../../public/js/notes.js';
 
 const BRIEF_MAX = 10000;
 
@@ -12,7 +13,7 @@ export function createWorkspaceService(store, options = {}) {
   const svc = {
     // Everything the Discovery and Planning screens need in one read.
     async load(cid) {
-      const [opps, pages, decisions, settings, appMeta] = await Promise.all([store.list(cid, 'opportunities'), store.list(cid, 'funderPages'), store.list(cid, 'decisions'), store.get(cid, 'meta', 'discovery'), store.get(cid, 'meta', 'application')]);
+      const [opps, pages, decisions, settings, appMeta, noteRecs] = await Promise.all([store.list(cid, 'opportunities'), store.list(cid, 'funderPages'), store.list(cid, 'decisions'), store.get(cid, 'meta', 'discovery'), store.get(cid, 'meta', 'application'), store.list(cid, 'notes')]);
       const order = (o) => (Number.isFinite(o.order) ? o.order : 0);
       const opportunities = opps.sort((a, b) => (order(a) - order(b)) || (a.id < b.id ? -1 : 1)).map(({ order: _o, ...rest }) => rest);
       const grants = {};
@@ -20,7 +21,9 @@ export function createWorkspaceService(store, options = {}) {
       for (const d of decisions) if (grants[d.id]) grants[d.id] = { workflow: d.workflow, override: !!d.override };
       const s = settings || {};
       const funderPages = usableFunderPages(pages.sort((a, b) => (order(a) - order(b)) || (a.id < b.id ? -1 : 1)));
-      const out = { opportunities, funderPages, grants, hideUnsuitable: !!s.hideUnsuitable };
+      const notes = {};
+      for (const n of noteRecs) if (grants[n.id] && n.text) notes[n.id] = { text: n.text, updatedAt: n.updatedAt, updatedBy: n.updatedBy };
+      const out = { opportunities, funderPages, grants, notes, hideUnsuitable: !!s.hideUnsuitable };
       if (typeof s.brief === 'string') out.brief = s.brief;
       if (appMeta && appMeta.defaults) out.applicationDefaults = appMeta.defaults;
       if (typeof s.freshId === 'string' && grants[s.freshId]) out.freshId = s.freshId;
@@ -34,6 +37,20 @@ export function createWorkspaceService(store, options = {}) {
       const record = { id: oid, workflow: d.workflow, override: d.override, updatedAt: now().toISOString() };
       await store.tx(cid, async (tx) => { tx.set('decisions', oid, record); });
       return { workflow: record.workflow, override: record.override };
+    },
+
+    // One note per grant. Empty text deletes it. Returns the saved note, or null once deleted.
+    async setNote(cid, oid, input, email) {
+      const v = validateNote(input && input.text);
+      if (!v.ok) throw new ServiceError('invalid', v.message);
+      if (!(await store.get(cid, 'opportunities', oid))) throw new ServiceError('not-found');
+      if (v.text === '') {
+        await store.tx(cid, async (tx) => { tx.delete('notes', oid); });
+        return { note: null };
+      }
+      const record = { id: oid, text: v.text, updatedAt: now().toISOString(), updatedBy: email };
+      await store.tx(cid, async (tx) => { tx.set('notes', oid, record); });
+      return { note: { text: record.text, updatedAt: record.updatedAt, updatedBy: record.updatedBy } };
     },
 
     // Partial update of { brief?, hideUnsuitable?, freshId? } (freshId null clears it).

@@ -78,6 +78,7 @@ const CASES = [
   { p: 'GET /api/charities/:cid', build: (cid) => ['GET', R(cid, '')] },
   { p: 'GET /api/charities/:cid/workspace', build: (cid) => ['GET', R(cid, '/workspace')] },
   { p: 'PUT /api/charities/:cid/decisions/:oid', build: (cid) => ['PUT', R(cid, '/decisions/G-001'), { json: { workflow: 'watchlist', override: false } }] },
+  { p: 'PUT /api/charities/:cid/notes/:oid', build: (cid) => ['PUT', R(cid, '/notes/G-001'), { json: { text: 'A note' } }] },
   { p: 'PUT /api/charities/:cid/discovery-settings', build: (cid) => ['PUT', R(cid, '/discovery-settings'), { json: { hideUnsuitable: true } }] },
   { p: 'GET /api/charities/:cid/profile', build: (cid) => ['GET', R(cid, '/profile')] },
   { p: 'PUT /api/charities/:cid/profile', build: (cid) => ['PUT', R(cid, '/profile'), { json: { overview: 'Changed overview' } }] },
@@ -133,7 +134,7 @@ async function ensureReplacement(cid, user, f) {
 
 async function dump(cid) {
   const out = {};
-  for (const c of ['meta', 'opportunities', 'decisions', 'bids', 'documents', 'applications', 'submissionSnapshots', 'submissionFiles', 'submissionAttempts', 'submissionReceipts', 'funderPages']) out[c] = await h.store.list(cid, c);
+  for (const c of ['meta', 'opportunities', 'decisions', 'bids', 'documents', 'applications', 'submissionSnapshots', 'submissionFiles', 'submissionAttempts', 'submissionReceipts', 'funderPages', 'notes']) out[c] = await h.store.list(cid, c);
   return JSON.stringify(out);
 }
 

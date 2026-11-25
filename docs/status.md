@@ -1,5 +1,9 @@
 # Current status and handoff
 
+## Latest: S5-001 Phase A (word search and notes) built — 2026-11-25 (implementing model)
+
+- Search box over the grant list (Discovery tabs and Planning, "N of M" counts, no-match message with Clear search) and one shared note per grant (autosave, "Has notes" marker). Local tests: unit 132 (1 skipped), integration 87, Playwright 321, all passing. See the [ticket](../project/sprint-5/tickets/S5-001-research-parity/ticket.md). Phases B to D not started in this entry.
+
 ## Latest: S5-001 specified and planned — 2026-11-25 (Claude)
 
 - The user asked to match features with Research (Aifin suite). [S5-001](../project/sprint-5/tickets/S5-001-research-parity/ticket.md): word search, grant notes, real AI discovery (takes over S4-001 Phase 3), AI assessment and discussion, the charity's own AI keys. Four phases; Phase D needs Google Cloud step G8 (KMS), which waits for the user's approval.
