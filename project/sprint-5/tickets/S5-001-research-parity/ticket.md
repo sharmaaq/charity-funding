@@ -52,6 +52,7 @@ Built by the implementing model, phase by phase (plan.md). Test counts are as re
 - A discussion keeps its full history and sends it with every message, so the model can be changed between messages (D8); the first message carries the organisation information, the grant and its saved assessment. A question whose answer failed stays in the thread and is merged into the next message. The stored context is never sent to the browser.
 - Spec disagreement: none for this phase. Plan said "`POST ${P}/threads`" for creating a thread; it takes the first message in the same call (the spec's "Ask about funding" and "Discuss" both start with a message).
 - Tests: unit 148 pass (1 skipped), integration 103 pass, Playwright 330 pass (18 new in `assist.spec.js`; one existing Planning test now ignores the new Assess button). New: `tests/integration/assist.test.js`, `tests/unit/markdown-jobs.test.js`; the isolation suite covers all eight new routes. Automated tests use the fake runner only.
+- Shipped Phase C: commit 0927345; staging revision charity-funding-staging-00006-gfq (302 to accounts.google.com). The assessment and discussion were not run against the real Gemini model (only Discover was); the signed-in check is the user's.
 
 ## Handoff
 
