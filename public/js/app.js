@@ -14,6 +14,9 @@ import {
 } from './state.js';
 import { filterGrants, searchWords } from './search.js';
 import { NOTE_MAX } from './notes.js';
+import { followJob as followEvents } from './jobs.js';
+import { renderMarkdown } from './markdown.js';
+import { DISCUSSIONS_HOME, createDiscussions, isDiscussionsHash, newDiscussionHash, parseDiscussionsHash } from './discussions.js';
 import { api } from './remote/http.js';
 import { SIGN_OUT_HREF, cleanOldBrowserData, pickCharity, readLastCharity, splitWordmark, writeLastCharity } from './remote/session.js';
 import { createRepository as createOrgRepository } from './org/repository.js';
@@ -107,6 +110,7 @@ try {
 let state = stateFromWorkspace(workspace);
 const SAVED_NOTES = Object.fromEntries(Object.entries(workspace.notes || {}).map(([id, n]) => [id, n.text]));
 const NOTES = Object.fromEntries(Object.entries(workspace.notes || {}).map(([id, n]) => [id, { ...n }])); // { [grantId]: { text, updatedAt, updatedBy } }
+const ASSESSED = { ...(workspace.assessed || {}) }; // { [grantId]: { at, modelLabel } }
 let searchText = ''; // the word search; kept while switching tabs, cleared on reload
 let storageOk = true;
 const APPLICATION_DEFAULTS = workspace.applicationDefaults || null;
@@ -175,7 +179,7 @@ const ACTION_LABELS = {
   abandon: 'Abandon',
 };
 const BUTTON_CLASS = { plan: 'btn primary', markSuitable: 'btn lime', pass: 'btn quiet', abandon: 'btn quiet' };
-const AREA_TITLES = { discovery: 'Discovery', planning: 'Planning & submission', tracking: 'Tracking' };
+const AREA_TITLES = { discovery: 'Discovery', planning: 'Planning & submission', tracking: 'Tracking', discussions: 'Discussions' };
 const ORG_HOME = '#/organisation';
 const ACTION_RESULT = {
   watch: 'watchlist',
@@ -204,6 +208,7 @@ function h(tag, attrs, ...children) {
 
 const MARKERS = {
   fresh: { label: 'New', icon: 'M12 2 L14.6 9.4 L22 12 L14.6 14.6 L12 22 L9.4 14.6 L2 12 L9.4 9.4 Z' },
+  assessed: { label: 'Assessed', icon: 'M4 12.5 L9.5 18 L20 6' },
   notes: { label: 'Has notes', icon: 'M5 19 L6 14 L16 4 L20 8 L10 18 Z M14 6 L18 10' },
   upcoming: { label: 'Upcoming', icon: 'M4 6 H20 V20 H4 Z M4 10.5 H20 M8.5 3 V7.5 M15.5 3 V7.5' },
   dueSoon: { label: 'Due soon', icon: 'M12 3 A9 9 0 1 0 12.01 3 Z M12 7.5 V12.5 L15.5 14.5' },
@@ -283,6 +288,109 @@ function commit(next) {
   return true;
 }
 document.documentElement.dataset.pending = '0';
+
+// ---------- AI assessment of one grant (REQ-041) ----------
+// assessments: grantId -> { open, running, text, meta: { at, modelLabel } | null, error, progress }
+const assessments = new Map();
+const assessTimers = new Map();
+const jobUrlOf = (jobId) => `/api/charities/${encodeURIComponent(CID)}/jobs/${encodeURIComponent(jobId)}/events`;
+
+function ensureMarker(id, kind, on) {
+  for (const li of document.querySelectorAll(`li.grant[data-id="${CSS.escape(id)}"]`)) {
+    const box = li.querySelector('.markers');
+    const cur = box && box.querySelector(`.marker-${kind}`);
+    if (on && box && !cur) box.append(markerBadge(kind));
+    else if (!on && cur) cur.remove();
+  }
+}
+
+function drawAssessment(id) {
+  clearTimeout(assessTimers.get(id));
+  assessTimers.delete(id);
+  const grant = grantById(id);
+  const st = assessments.get(id);
+  for (const el of document.querySelectorAll(`.assess-panel[data-grant="${CSS.escape(id)}"]`)) {
+    el.replaceChildren(...(grant && st && st.open ? [assessmentPanel(grant)] : []));
+    const btn = el.closest('li.grant')?.querySelector('[data-testid="assess"]');
+    if (btn) btn.setAttribute('aria-expanded', String(Boolean(st && st.open)));
+  }
+}
+function scheduleDraw(id) {
+  if (!assessTimers.has(id)) assessTimers.set(id, setTimeout(() => drawAssessment(id), 120)); // streaming: redraw at most every 120 ms
+}
+
+function assessmentPanel(grant) {
+  const st = assessments.get(grant.id);
+  const body = h('div', { class: 'md', 'data-testid': 'assessment-text' });
+  if (st.text) body.append(renderMarkdown(st.text));
+  const when = st.meta ? new Date(st.meta.at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+  return h('section', { class: 'assessment', 'aria-label': `AI assessment of ${grant.name}` },
+    h('h3', { text: 'AI assessment' }),
+    st.running ? h('p', { class: 'ai-status', role: 'status', 'data-testid': 'assess-status' }, h('span', { class: 'spinner', 'aria-hidden': 'true' }), h('span', { text: st.text ? 'The AI is writing...' : (st.progress || 'Reading the guidance...') })) : null,
+    st.error ? h('p', { class: 'form-error', role: 'alert', 'data-testid': 'assess-error', text: st.error }) : null,
+    body,
+    st.meta && !st.running ? h('p', { class: 'assess-meta', 'data-testid': 'assess-meta', text: `Assessed on ${when} with ${st.meta.modelLabel}.` }) : null,
+    h('div', { class: 'thread-actions' },
+      h('button', { type: 'button', class: 'btn primary', 'data-testid': 'reassess', disabled: st.running ? true : null, onclick: () => runAssessment(grant.id) }, st.meta || st.error ? 'Re-assess' : 'Assess with AI'),
+      h('a', { class: 'btn', role: 'button', href: newDiscussionHash(grant.id), text: 'Discuss this grant' }),
+      h('button', { type: 'button', class: 'btn quiet', onclick: () => { st.open = false; drawAssessment(grant.id); } }, 'Close')),
+    h('p', { class: 'ai-note', text: 'AI assessments are suggestions. Check the funder\'s own guidance before you decide.' }));
+}
+
+async function followAssessment(id, jobId) {
+  const st = assessments.get(id);
+  st.running = true;
+  st.error = null;
+  st.text = '';
+  drawAssessment(id);
+  try {
+    const result = await followEvents(jobUrlOf(jobId), (e) => {
+      if (e.type === 'text') { st.text += e.text; scheduleDraw(id); } else if (e.type === 'status') { st.progress = e.text; scheduleDraw(id); }
+    });
+    st.text = result.assessment.text;
+    st.meta = { at: result.assessment.at, modelLabel: result.assessment.modelLabel };
+    ASSESSED[id] = { at: st.meta.at, modelLabel: st.meta.modelLabel };
+    ensureMarker(id, 'assessed', true);
+  } catch (e) {
+    st.error = `The assessment could not be completed. ${e.message}`;
+    if (st.meta) st.text = st.savedText || st.text; // the earlier assessment stays readable
+  }
+  st.running = false;
+  drawAssessment(id);
+}
+
+async function runAssessment(id) {
+  const st = assessments.get(id);
+  st.savedText = st.meta ? st.text : '';
+  try {
+    const { jobId } = await api(`/api/charities/${encodeURIComponent(CID)}/opportunities/${encodeURIComponent(id)}/assess`, { method: 'POST', json: { model: currentModelId } });
+    await followAssessment(id, jobId);
+  } catch (e) {
+    st.running = false;
+    st.error = e && e.code === 'conflict' ? 'An assessment of this grant is already in progress.' : `The assessment could not be started. ${e && e.message ? e.message : ''}`;
+    drawAssessment(id);
+  }
+}
+
+async function toggleAssessment(grant) {
+  const id = grant.id;
+  let st = assessments.get(id);
+  if (st && st.open) { st.open = false; drawAssessment(id); return; }
+  if (!st) { st = { open: true, running: false, text: '', meta: null, error: null, loaded: false }; assessments.set(id, st); }
+  st.open = true;
+  drawAssessment(id);
+  if (st.running) return;
+  if (!st.loaded) {
+    try {
+      const got = await api(`/api/charities/${encodeURIComponent(CID)}/assessments/${encodeURIComponent(id)}`);
+      st.loaded = true;
+      if (got.assessment) { st.text = got.assessment.text; st.meta = { at: got.assessment.at, modelLabel: got.assessment.modelLabel }; }
+      if (got.jobId) { void followAssessment(id, got.jobId); return; }
+    } catch (e) { st.error = `The saved assessment could not be loaded. ${e.message}`; drawAssessment(id); return; }
+  }
+  if (st.meta) drawAssessment(id);
+  else await runAssessment(id);
+}
 
 // ---------- notes (REQ-039) ----------
 const NOTE_DELAY_MS = 1000;
@@ -450,7 +558,7 @@ function grantItem(grant, entry, actionNames, showMarkers = false, extra = null)
   return h('li', { class: 'grant', 'data-id': grant.id, 'data-suitability': eff },
     h('div', { class: 'c-grant' },
       h('div', { class: 'name-row' }, h('h2', { text: grant.name }),
-        h('span', { class: 'markers' }, [...(showMarkers ? markersFor(grant) : []), ...(hasNote(grant.id) ? ['notes'] : [])].map(markerBadge))),
+        h('span', { class: 'markers' }, [...(showMarkers ? markersFor(grant) : []), ...(hasNote(grant.id) ? ['notes'] : []), ...(ASSESSED[grant.id] ? ['assessed'] : [])].map(markerBadge))),
       h('p', { class: 'funder', text: grant.funder }),
       h('p', { class: 'summary', text: grant.summary }),
       grant.foundBy === 'ai' ? h('p', { class: 'found-by', 'data-testid': 'found-by', text: `Found by AI on ${longDay(grant.foundAt)}` }) : null,
@@ -466,6 +574,10 @@ function grantItem(grant, entry, actionNames, showMarkers = false, extra = null)
       h('p', { class: 'reason', text: reasonText(grant, entry) }),
     ),
     h('div', { class: 'actions' }, actions),
+    h('div', { class: 'ai-actions' },
+      h('button', { type: 'button', class: 'btn', 'data-testid': 'assess', 'aria-label': `Assess with AI: ${grant.name}`, 'aria-expanded': String(Boolean(assessments.get(grant.id) && assessments.get(grant.id).open)), onclick: () => toggleAssessment(grant) }, 'Assess with AI'),
+      h('a', { class: 'btn', role: 'button', 'data-testid': 'discuss', 'aria-label': `Discuss: ${grant.name}`, href: newDiscussionHash(grant.id) }, 'Discuss')),
+    h('div', { class: 'assess-panel', 'data-testid': 'assess-panel', 'data-grant': grant.id }, assessments.get(grant.id) && assessments.get(grant.id).open ? assessmentPanel(grant) : null),
     extra ? h('div', { class: 'app-extra' }, extra(grant)) : null,
     h('details', null,
       h('summary', { text: 'Details and sources' }),
@@ -628,6 +740,7 @@ function renderNav(route) {
     ['Discovery', VIEW_HASH.new, route.area === 'discovery'],
     ['Planning & submission', VIEW_HASH.planning, route.area === 'planning' || route.area === 'application'],
     ['Tracking', '#/tracking', route.area === 'tracking'],
+    ['Discussions', DISCUSSIONS_HOME, route.area === 'discussions'],
   ];
   navEl.setAttribute('aria-label', 'Main');
   navEl.replaceChildren(...items.map(([label, href, current]) =>
@@ -641,15 +754,18 @@ function currentRoute() {
   if (org) return { area: 'organisation', org };
   const app = isApplicationHash(hash) ? parseApplicationHash(hash) : null;
   if (app) return { area: 'application', app };
+  const disc = isDiscussionsHash(hash) ? parseDiscussionsHash(hash) : null;
+  if (disc) return { area: 'discussions', disc };
   return ROUTES[DEFAULT_ROUTE];
 }
 
 function isKnownHash(hash) {
-  return Boolean(ROUTES[hash] || (isOrgHash(hash) && parseOrgHash(hash)) || (isApplicationHash(hash) && parseApplicationHash(hash)));
+  return Boolean(ROUTES[hash] || (isOrgHash(hash) && parseOrgHash(hash)) || (isApplicationHash(hash) && parseApplicationHash(hash)) || (isDiscussionsHash(hash) && parseDiscussionsHash(hash)));
 }
 
 function fallbackHash(hash) {
   if (isApplicationHash(hash)) return VIEW_HASH.planning;
+  if (isDiscussionsHash(hash)) return DISCUSSIONS_HOME;
   return isOrgHash(hash) ? ORG_HOME : DEFAULT_ROUTE;
 }
 
@@ -666,6 +782,24 @@ const organisation = createOrganisation({
     else location.hash = hash; // hashchange triggers render
   },
 });
+
+// Discussions (#/discussions...) live in js/discussions.js and render themselves into <main>.
+const discussions = createDiscussions({
+  mount: mainEl,
+  titleEl,
+  cid: CID,
+  api,
+  h,
+  getGrant: (id) => grantById(id) || null,
+  getModel: () => currentModelId,
+  announce: (text) => announce(text),
+  announceNext: (text) => { pendingMessage = { text }; },
+  navigate: (hash) => {
+    if (location.hash === hash) render();
+    else location.hash = hash; // hashchange triggers render
+  },
+});
+let discussionsShown = null; // the hash the discussions view was last drawn for
 
 // The application workspace (#/planning/<grant>/application...) lives in js/application/ and renders itself into <main>.
 const application = createApplication({
@@ -700,6 +834,28 @@ function setBrandActive(on) {
 function render(opts = {}) {
   const route = currentRoute();
   renderNav(route);
+  if (route.area === 'discussions') {
+    organisation.hide();
+    application.hide();
+    clearTimeout(tickTimer);
+    tickTimer = null;
+    setBrandActive(false);
+    panelEl.hidden = true;
+    updateNotice();
+    if (pendingMessage) {
+      announce(pendingMessage.text, pendingMessage.hash, pendingMessage.link);
+      pendingMessage = null;
+    }
+    // A repaint (a refresh after a run, the tab becoming visible) must not restart a thread that is streaming.
+    if (!(discussions.isVisible() && discussionsShown === location.hash)) {
+      discussionsShown = location.hash;
+      discussions.show(route.disc);
+      if (opts.focus !== false) titleEl.focus({ preventScroll: true });
+    }
+    return;
+  }
+  discussions.hide();
+  discussionsShown = null;
   if (route.area === 'application') {
     clearTimeout(tickTimer);
     tickTimer = null;
@@ -792,7 +948,7 @@ briefEl.addEventListener('input', () => {
 window.addEventListener('pagehide', saveBrief);
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') saveBrief();
-  else if (currentRoute().area !== 'organisation' && currentRoute().area !== 'application') render({ focus: false });
+  else if (!['organisation', 'application', 'discussions'].includes(currentRoute().area)) render({ focus: false });
 });
 
 const progressLine = (text) => {
@@ -801,39 +957,10 @@ const progressLine = (text) => {
   aiProgressEl.scrollTop = aiProgressEl.scrollHeight;
 };
 
-// Follows a job's server-sent events from the start (the server replays them, so a reload or a dropped connection is
-// safe). Resolves with the job's result, rejects with its error.
-function followJob(jobId) {
-  const url = `/api/charities/${encodeURIComponent(CID)}/jobs/${encodeURIComponent(jobId)}/events`;
-  return new Promise((resolve, reject) => {
-    let received = 0;
-    let retries = 0;
-    const open = () => {
-      let idx = 0;
-      const skipTo = received;
-      const es = new EventSource(url);
-      es.onmessage = (m) => {
-        idx += 1;
-        if (idx <= skipTo) return;
-        received = idx;
-        retries = 0;
-        let e;
-        try { e = JSON.parse(m.data); } catch { return; }
-        if (e.type === 'status') progressLine(e.text);
-        else if (e.type === 'tool') progressLine(`Searching: ${e.detail}`);
-        else if (e.type === 'done') { es.close(); resolve(e.result); }
-        else if (e.type === 'error') { es.close(); reject(new Error(e.error || 'The run failed.')); }
-      };
-      es.onerror = () => {
-        es.close();
-        retries += 1;
-        if (retries > 5) { reject(new Error('Lost contact with the run. Reload the page to see whether it finished.')); return; }
-        setTimeout(open, 1500);
-      };
-    };
-    open();
-  });
-}
+const followJob = (jobId) => followEvents(jobUrlOf(jobId), (e) => {
+  if (e.type === 'status') progressLine(e.text);
+  else if (e.type === 'tool') progressLine(`Searching: ${e.detail}`);
+});
 
 // Re-reads the saved grants after a run. The brief and the manager's decisions come back exactly as saved.
 async function reloadWorkspace() {
@@ -841,6 +968,8 @@ async function reloadWorkspace() {
   OPPS.splice(0, OPPS.length, ...ws.opportunities);
   state = stateFromWorkspace(ws);
   workspace.lastRun = ws.lastRun;
+  for (const k of Object.keys(ASSESSED)) delete ASSESSED[k];
+  Object.assign(ASSESSED, ws.assessed || {});
 }
 
 function renderLastRun() {
@@ -874,7 +1003,7 @@ async function finishRun(jobId, { announceDone = true } = {}) {
   const done = `Discovery complete: ${result.new} new, ${result.updated} updated.`;
   pendingMessage = announceDone ? { text: done, hash: VIEW_HASH.new, link: 'Go to New' } : null;
   const route = currentRoute();
-  if (route.area === 'organisation' || route.area === 'application') { if (pendingMessage) { announce(pendingMessage.text, pendingMessage.hash, pendingMessage.link); pendingMessage = null; } return; }
+  if (route.area === 'organisation' || route.area === 'application' || route.area === 'discussions') { if (pendingMessage) { announce(pendingMessage.text, pendingMessage.hash, pendingMessage.link); pendingMessage = null; } return; }
   render({ focus: false });
 }
 

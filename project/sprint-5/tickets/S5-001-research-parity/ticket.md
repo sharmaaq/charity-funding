@@ -43,6 +43,16 @@ Built by the implementing model, phase by phase (plan.md). Test counts are as re
 - Google Cloud: `GOOGLE_CLOUD_PROJECT=charity-funding-514818` set on the staging service only (plan G9; revision charity-funding-staging-00004-5lm) and added to the charity-funding `env` in `deploy\apps.json`. Production gets it only at promotion.
 - Not changed: Cloud Run CPU is throttled between requests on the staging service. A run keeps working while any browser tab is connected to its events; if every tab is closed mid-run the run may stall until the next request reaches the instance. Setting "CPU always allocated" would fix that; it is a service setting, not done here.
 
+- Shipped Phase B: commit 3e3e398; staging revision charity-funding-staging-00005-6qn (302 to accounts.google.com).
+
+### Phase C: assessment and discussion (REQ-041, REQ-042) - 2026-11-25
+
+- Built: `assessments` and `threads` collections; `server/services/assist.js`; prompts for the assessment and the discussion opening (`assessGrantPrompt`, `threadContext`, `threadOpening`); routes `GET /assessments/:oid`, `POST /opportunities/:oid/assess` (job), `GET /threads`, `POST /threads` (creates the discussion with its first message and starts the answer, so no empty threads), `GET/PATCH/DELETE /threads/:id`, `POST /threads/:id/messages` (job); answers stream over the existing job events route. Browser: "Assess with AI" and "Discuss" on every card (Discovery and Planning), an assessment panel that streams markdown, shows the saved text with its date and model, and offers Re-assess; "Assessed" marker (also from the workspace load); a Discussions page in the main navigation (list newest first, new discussion with or without a grant, thread view with streaming answers, rename, delete after a confirmation, reload-safe).
+- Markdown: no vendor library was added. `public/js/markdown.js` is a small in-house renderer that builds DOM text nodes only (never innerHTML), links must be https and open with `rel="noopener noreferrer"`; supports headings, paragraphs, bullet and numbered lists, bold, italic, code and links. This is the "plain paragraphs" fallback in the plan, a little richer. `public/js/jobs.js` is the shared event follower (used by Discover too).
+- A discussion keeps its full history and sends it with every message, so the model can be changed between messages (D8); the first message carries the organisation information, the grant and its saved assessment. A question whose answer failed stays in the thread and is merged into the next message. The stored context is never sent to the browser.
+- Spec disagreement: none for this phase. Plan said "`POST ${P}/threads`" for creating a thread; it takes the first message in the same call (the spec's "Ask about funding" and "Discuss" both start with a message).
+- Tests: unit 148 pass (1 skipped), integration 103 pass, Playwright 330 pass (18 new in `assist.spec.js`; one existing Planning test now ignores the new Assess button). New: `tests/integration/assist.test.js`, `tests/unit/markdown-jobs.test.js`; the isolation suite covers all eight new routes. Automated tests use the fake runner only.
+
 ## Handoff
 
 Phase D needs Google Cloud step G8 (KMS key and one role grant), which needs the user's approval before it runs.

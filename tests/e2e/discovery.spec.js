@@ -170,8 +170,8 @@ test('Mark G-004 suitable, Watch, Plan application; Planning shows override; rel
   await expect(row(page, 'G-004')).toHaveCount(1);
   await expect(row(page, 'G-004').locator('.badge')).toContainText('Suitable - manager override');
 
-  // Abandon is the only working control on the page
-  await expect(page.locator('main button')).toHaveCount(1);
+  // Abandon is the only decision control on the page (the AI buttons, Assess and Discuss, are not decisions)
+  await expect(page.locator('main button:not([data-testid="assess"])')).toHaveCount(1);
   await act(page, 'G-004', 'abandon').click();
   await expect(row(page, 'G-004')).toHaveCount(0);
   await expect(page.locator('#live')).toContainText('moved to Passed');

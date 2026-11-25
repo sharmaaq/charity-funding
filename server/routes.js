@@ -17,6 +17,7 @@ import { createOrgService } from './services/org.js';
 import { createApplicationService } from './services/applications.js';
 import { createWorkspaceService } from './services/workspace.js';
 import { createDiscoveryService } from './services/discovery.js';
+import { createAssistService } from './services/assist.js';
 import { createJobs } from './ai/jobs.js';
 import { runAI } from './ai/runners.js';
 import { DEFAULT_MODEL, availableModels, publicModel, resolveModel } from './ai/models.js';
@@ -55,6 +56,7 @@ export function createRoutes({ store, config, now = () => new Date(), limits = {
   const apps = createApplicationService(store, { now, limits });
   const workspace = createWorkspaceService(store, { now });
   const jobs = createJobs();
+  const assist = createAssistService({ store, org, jobs, ai, now, runTimeoutMs: limits.aiRunTimeoutMs });
   const discovery = createDiscoveryService({ store, org, jobs, ai, now, runTimeoutMs: limits.aiRunTimeoutMs });
   const routes = [];
   const add = (method, pattern, handler) => {
@@ -104,6 +106,26 @@ export function createRoutes({ store, config, now = () => new Date(), limits = {
     const b = await readJson(req);
     const job = await discovery.start(cid, user.email, resolveModel(typeof b.model === 'string' ? b.model : '', {}));
     sendJson(res, 200, { jobId: job.id });
+  }));
+  const modelOf = (b) => resolveModel(typeof (b && b.model) === 'string' ? b.model : '', {});
+  add('GET', `${P}/assessments/:oid`, C(async ({ cid, res, params }) => sendJson(res, 200, await assist.getAssessment(cid, rid({ params }, 'oid')))));
+  add('POST', `${P}/opportunities/:oid/assess`, C(async ({ cid, req, res, params, user }) => {
+    const job = await assist.startAssessment(cid, rid({ params }, 'oid'), user.email, modelOf(await readJson(req)));
+    sendJson(res, 200, { jobId: job.id });
+  }));
+  add('GET', `${P}/threads`, C(async ({ cid, res }) => sendJson(res, 200, { threads: await assist.listThreads(cid) })));
+  add('POST', `${P}/threads`, C(async ({ cid, req, res, user }) => {
+    const b = await readJson(req);
+    const { thread, job } = await assist.send(cid, user.email, modelOf(b), { grantId: typeof b.grantId === 'string' ? b.grantId : null, text: b.text });
+    sendJson(res, 200, { thread, jobId: job.id });
+  }));
+  add('GET', `${P}/threads/:id`, C(async ({ cid, res, params }) => sendJson(res, 200, await assist.getThread(cid, rid({ params })))));
+  add('PATCH', `${P}/threads/:id`, C(async ({ cid, req, res, params }) => sendJson(res, 200, await assist.renameThread(cid, rid({ params }), await readJson(req)))));
+  add('DELETE', `${P}/threads/:id`, C(async ({ cid, res, params }) => sendJson(res, 200, await assist.deleteThread(cid, rid({ params })))));
+  add('POST', `${P}/threads/:id/messages`, C(async ({ cid, req, res, params, user }) => {
+    const b = await readJson(req);
+    const { thread, job } = await assist.send(cid, user.email, modelOf(b), { threadId: rid({ params }), text: b.text });
+    sendJson(res, 200, { thread, jobId: job.id });
   }));
   add('GET', `${P}/jobs/:jid/events`, C(async ({ cid, req, res, params }) => {
     const job = jobs.get(cid, params.jid);

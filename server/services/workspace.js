@@ -13,7 +13,7 @@ export function createWorkspaceService(store, options = {}) {
   const svc = {
     // Everything the Discovery and Planning screens need in one read.
     async load(cid) {
-      const [opps, pages, decisions, settings, appMeta, noteRecs] = await Promise.all([store.list(cid, 'opportunities'), store.list(cid, 'funderPages'), store.list(cid, 'decisions'), store.get(cid, 'meta', 'discovery'), store.get(cid, 'meta', 'application'), store.list(cid, 'notes')]);
+      const [opps, pages, decisions, settings, appMeta, noteRecs, assessmentRecs] = await Promise.all([store.list(cid, 'opportunities'), store.list(cid, 'funderPages'), store.list(cid, 'decisions'), store.get(cid, 'meta', 'discovery'), store.get(cid, 'meta', 'application'), store.list(cid, 'notes'), store.list(cid, 'assessments')]);
       const order = (o) => (Number.isFinite(o.order) ? o.order : 0);
       const opportunities = opps.sort((a, b) => (order(a) - order(b)) || (a.id < b.id ? -1 : 1)).map(({ order: _o, ...rest }) => rest);
       const grants = {};
@@ -23,7 +23,9 @@ export function createWorkspaceService(store, options = {}) {
       const funderPages = usableFunderPages(pages.sort((a, b) => (order(a) - order(b)) || (a.id < b.id ? -1 : 1)));
       const notes = {};
       for (const n of noteRecs) if (grants[n.id] && n.text) notes[n.id] = { text: n.text, updatedAt: n.updatedAt, updatedBy: n.updatedBy };
-      const out = { opportunities, funderPages, grants, notes, hideUnsuitable: !!s.hideUnsuitable };
+      const assessed = {};
+      for (const a of assessmentRecs) if (grants[a.id]) assessed[a.id] = { at: a.at, modelLabel: a.modelLabel };
+      const out = { opportunities, funderPages, grants, notes, assessed, hideUnsuitable: !!s.hideUnsuitable };
       if (typeof s.brief === 'string') out.brief = s.brief;
       if (s.lastRun) out.lastRun = s.lastRun;
       if (appMeta && appMeta.defaults) out.applicationDefaults = appMeta.defaults;

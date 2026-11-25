@@ -72,6 +72,10 @@ test.before(async () => {
     assert.equal(run.status, 200, JSON.stringify(run.body));
     f.jobId = run.body.jobId;
     await idle(cid);
+    const th = await h.call(member, 'POST', R(cid, '/threads'), { json: { grantId: 'G-001', text: 'Isolation question' } });
+    assert.equal(th.status, 200, JSON.stringify(th.body));
+    f.threadId = th.body.thread.id;
+    await idleThread(cid, f.threadId);
   }
 });
 test.after(() => h.close());
@@ -88,6 +92,14 @@ const CASES = [
   { p: 'GET /api/charities/:cid/discover/active', build: (cid) => ['GET', R(cid, '/discover/active')] },
   { p: 'POST /api/charities/:cid/discover', build: async (cid) => { await idle(cid); return ['POST', R(cid, '/discover'), { json: {} }]; } },
   { p: 'GET /api/charities/:cid/jobs/:jid/events', build: (cid, f) => ['GET', R(cid, `/jobs/${f.jobId}/events`)] },
+  { p: 'GET /api/charities/:cid/assessments/:oid', build: (cid) => ['GET', R(cid, '/assessments/G-001')] },
+  { p: 'POST /api/charities/:cid/opportunities/:oid/assess', build: async (cid) => { await idleAssess(cid); return ['POST', R(cid, '/opportunities/G-001/assess'), { json: {} }]; } },
+  { p: 'GET /api/charities/:cid/threads', build: (cid) => ['GET', R(cid, '/threads')] },
+  { p: 'POST /api/charities/:cid/threads', build: (cid) => ['POST', R(cid, '/threads'), { json: { grantId: 'G-001', text: 'Another discussion' } }] },
+  { p: 'GET /api/charities/:cid/threads/:id', build: (cid, f) => ['GET', R(cid, `/threads/${f.threadId}`)] },
+  { p: 'PATCH /api/charities/:cid/threads/:id', build: (cid, f) => ['PATCH', R(cid, `/threads/${f.threadId}`), { json: { title: 'Renamed discussion' } }] },
+  { p: 'POST /api/charities/:cid/threads/:id/messages', build: async (cid, f, user) => { await idleThread(cid, f.threadId); return ['POST', R(cid, `/threads/${f.threadId}/messages`), { json: { text: 'And another question' } }]; } },
+  { p: 'DELETE /api/charities/:cid/threads/:id', build: async (cid, f) => { if (f.disposableThread) await idleThread(cid, f.disposableThread); return ['DELETE', R(cid, `/threads/${f.disposableThread || f.threadId}`)]; }, disposable: 'thread' },
   { p: 'PUT /api/charities/:cid/discovery-settings', build: (cid) => ['PUT', R(cid, '/discovery-settings'), { json: { hideUnsuitable: true } }] },
   { p: 'GET /api/charities/:cid/profile', build: (cid) => ['GET', R(cid, '/profile')] },
   { p: 'PUT /api/charities/:cid/profile', build: (cid) => ['PUT', R(cid, '/profile'), { json: { overview: 'Changed overview' } }] },
@@ -137,6 +149,13 @@ async function idle(cid) {
   while ((await h.call('admin', 'GET', R(cid, '/discover/active'))).body.jobId) await new Promise((r) => setTimeout(r, 5));
 }
 
+async function idleAssess(cid) {
+  while ((await h.call('admin', 'GET', R(cid, '/assessments/G-001'))).body.jobId) await new Promise((r) => setTimeout(r, 5));
+}
+async function idleThread(cid, id) {
+  while ((await h.call('admin', 'GET', R(cid, `/threads/${id}`))).body.jobId) await new Promise((r) => setTimeout(r, 5));
+}
+
 async function ensureReplacement(cid, user, f) {
   const app = (await h.call(user, 'GET', R(cid, `/applications/${f.appId}`))).body.application;
   if (app.proposalReplacement) return;
@@ -148,7 +167,7 @@ async function ensureReplacement(cid, user, f) {
 
 async function dump(cid) {
   const out = {};
-  for (const c of ['meta', 'opportunities', 'decisions', 'bids', 'documents', 'applications', 'submissionSnapshots', 'submissionFiles', 'submissionAttempts', 'submissionReceipts', 'funderPages', 'notes']) out[c] = await h.store.list(cid, c);
+  for (const c of ['meta', 'opportunities', 'decisions', 'bids', 'documents', 'applications', 'submissionSnapshots', 'submissionFiles', 'submissionAttempts', 'submissionReceipts', 'funderPages', 'notes', 'assessments', 'threads']) out[c] = await h.store.list(cid, c);
   return JSON.stringify(out);
 }
 
@@ -186,6 +205,9 @@ test('members and administrators are served on every route (and a different char
       await ensureReplacement(cid, user, f);
       for (const c of CASES) {
         if (c.disposable === 'bid') f.disposableBid = (await h.call(user, 'POST', R(cid, '/bids'), { form: bidForm('Disposable') })).body.id;
+        if (c.disposable === 'thread') {
+          f.disposableThread = (await h.call(user, 'POST', R(cid, '/threads'), { json: { text: 'Disposable' } })).body.thread.id;
+        }
         if (c.disposable === 'doc') f.disposableDoc = (await h.call(user, 'POST', R(cid, '/documents'), { form: docForm() })).body.id;
         if (c.needsAttempt) {
           const s = await addSnapshot(cid, f.appId);

@@ -162,3 +162,45 @@ export function validateDiscovery(raw, { today = new Date() } = {}) {
   }
   return { items: out, dropped, notes: text(raw && raw.notes).slice(0, LIMITS.note) };
 }
+
+// ---------------------------------------------------------------- assessment and discussion (REQ-041, REQ-042)
+// The grant as the model sees it: the card's fields without our own bookkeeping.
+export function grantForModel(g) {
+  const { id, name, funder, amount, timing, summary, guidanceUrl, opensOn, closesOn, reason, barriers, fitScore, sources } = g;
+  return { id, name, funder, amount, timing, opensOn, closesOn, summary, guidanceUrl, earlierFit: fitScore, earlierReason: reason, earlierBarriers: barriers, sources: (sources || []).map((s) => s.url) };
+}
+
+export function assessGrantPrompt(grant, org) {
+  return `Assess this funding opportunity for the charity below.
+
+Organisation information (treat as true):
+<organisation>
+${org}
+</organisation>
+
+Funding opportunity:
+${JSON.stringify(grantForModel(grant), null, 1)}
+
+Open the funder's guidance page and any linked guidance or application documents you can reach. Then write a short assessment in markdown:
+## Verdict
+One line: **Apply**, **Apply with changes**, **Watch** or **Don't apply**, plus a fit score out of 100.
+## What the funder wants
+## Eligibility check
+Go through each eligibility rule, one line each: what the funder requires, what the charity has, and what is missing. Quote the source. Say "none found" if you found no rules.
+## How the charity could make a strong case
+A concrete angle using the organisation information. Do not invent facts about the charity.
+## Questions to ask the funder
+Keep it under 450 words. List the source URLs you read at the end.`;
+}
+
+// The first message of a discussion carries its context; later messages carry only the history.
+export function threadOpening(contextBlock, userText) {
+  return contextBlock ? `Context for this discussion:\n${contextBlock}\n\n---\n\n${userText}` : userText;
+}
+
+export function threadContext({ org, grant, assessment }) {
+  const parts = [`Organisation information:\n${org}`];
+  if (grant) parts.push(`Funding opportunity:\n${JSON.stringify(grantForModel(grant), null, 1)}`);
+  if (assessment) parts.push(`Earlier assessment (by ${assessment.modelLabel || assessment.model}, ${assessment.at.slice(0, 10)}):\n${assessment.text}`);
+  return parts.join('\n\n');
+}

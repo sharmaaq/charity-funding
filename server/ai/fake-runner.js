@@ -44,7 +44,10 @@ export function createFakeRunner(options = {}) {
       const structured = options.discovery || FAKE_DISCOVERY;
       return { text: JSON.stringify(structured), structured, searches: ['fake grants for charities', 'fake neighbourhood funding'], sources: [{ url: 'https://example.org/fake-source', title: 'Fake source' }], provider: choice.provider, model: choice.model };
     }
-    const reply = typeof options.reply === 'function' ? options.reply(opts) : `Fake answer to: ${String(opts.prompt).slice(-60)}`;
+    const FAKE_ASSESSMENT = '## Verdict\n**Apply with changes**, fit score 72/100.\n\n## What the funder wants\n- Fake: community projects\n- Fake: a clear budget\n\n## Eligibility check\n1. Fake rule one: met.\n2. Fake rule two: *missing* the accounts.\n\nSource: [Fake page](https://example.org/fake-source)';
+    const reply = typeof options.reply === 'function' ? options.reply(opts)
+      : opts.task === 'assess' ? FAKE_ASSESSMENT
+        : `Fake answer to: ${String(opts.prompt).slice(-60)} (history ${(opts.history || []).length})`;
     for (const part of reply.match(/.{1,40}/gs) || []) { emit({ type: 'text', text: part }); await sleep(Math.min(delayMs, 10)); }
     return { text: reply, searches: [], sources: [], provider: choice.provider, model: choice.model };
   }
