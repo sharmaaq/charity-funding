@@ -10,10 +10,10 @@ import { checkFileRef, checkRef } from './contract.js';
 const ALREADY_EXISTS = 6;
 const NOT_FOUND = 5;
 
-// options: { projectId, bucket, authClient? }
-export function createGcpStore({ projectId, bucket, authClient }) {
+// options: { projectId, bucket, databaseId?, authClient? }. databaseId selects a named Firestore database (staging).
+export function createGcpStore({ projectId, bucket, databaseId, authClient }) {
   const auth = authClient ? { authClient } : {};
-  const db = new Firestore({ projectId, ignoreUndefinedProperties: true, ...auth });
+  const db = new Firestore({ projectId, ...(databaseId ? { databaseId } : {}), ignoreUndefinedProperties: true, ...auth });
   const storage = new Storage({ projectId, ...auth });
   const bkt = storage.bucket(bucket);
 

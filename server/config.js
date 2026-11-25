@@ -1,11 +1,14 @@
 // Runtime configuration, read from the environment. No secret and no email address is ever committed here.
-// ADMIN_EMAILS, DATA_BUCKET, GEMINI_MODEL and GEMINI_LOCATION are set on the Cloud Run service by the deploy command.
+// ADMIN_EMAILS, DATA_BUCKET, FIRESTORE_DATABASE, GEMINI_MODEL and GEMINI_LOCATION are set on the Cloud Run service by the deploy command.
 
 export const PROJECT_NUMBER = '36580608208';
 export const SERVICE_REGION = 'europe-west1';
 export const SERVICE_NAME = 'charity-funding';
-// The IAP JWT audience for a Cloud Run service behind IAP.
-export const IAP_AUDIENCE = `/projects/${PROJECT_NUMBER}/locations/${SERVICE_REGION}/services/${SERVICE_NAME}`;
+// The IAP JWT audience for a Cloud Run service behind IAP. The staging copy runs as another service
+// (charity-funding-staging), so the audience follows K_SERVICE, the name Cloud Run gives the running service.
+export const iapAudienceFor = (service) => `/projects/${PROJECT_NUMBER}/locations/${SERVICE_REGION}/services/${service}`;
+export const IAP_AUDIENCE = iapAudienceFor(SERVICE_NAME);
+const SERVICE_RE = /^[a-z][a-z0-9-]{0,62}$/;
 
 export const normaliseEmail = (e) => String(e ?? '').trim().toLowerCase();
 const EMAIL_RE = /^[^\s@/]+@[^\s@/]+\.[^\s@/]+$/;
@@ -26,6 +29,7 @@ export function readConfig(env = process.env) {
     dataBucket: env.DATA_BUCKET || null,
     geminiModel: env.GEMINI_MODEL || null,
     geminiLocation: env.GEMINI_LOCATION || null,
-    iapAudience: IAP_AUDIENCE,
+    firestoreDatabase: env.FIRESTORE_DATABASE || '(default)',
+    iapAudience: SERVICE_RE.test(String(env.K_SERVICE ?? '')) ? iapAudienceFor(env.K_SERVICE) : IAP_AUDIENCE,
   });
 }

@@ -79,6 +79,8 @@ The Playwright config starts its own server on port 8091 and uses a fresh browse
 
 Deployment is a separate, reviewed step. From the repository root, with `gcloud` signed in (pass the project explicitly; do not change the default project):
 
+Deploy to staging only, from the workspace folder: `powershell -ExecutionPolicy Bypass -File deploy/stage.ps1 -App charity-funding` (https://charity-funding-staging.cloud.run). Production changes only when the user asks to promote: `deploy/promote.ps1 -App charity-funding -Yes`. See the workspace CLAUDE.md. The command below shows the service settings; do not run it against production.
+
 ```
 gcloud run deploy charity-funding --source . --region europe-west1 --project charity-funding-514818 --allow-unauthenticated --max-instances 1 --memory 1Gi --cpu 1 --timeout 180
 ```

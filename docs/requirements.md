@@ -99,3 +99,16 @@ Current complete proposed Sprint 2 spec: [S3-001 revision 8](../project/sprint-3
 | REQ-028 | UI/package/API/runner/failure/deployment evidence and preserved regression behaviour | Required validation; cases specified |
 
 No verified public applicant submission API was found. The selected current route is Blackbaud browser portal automation, conditional on authenticated mapping for real operation. All REST routes in S3-001 are ours, not alleged funder endpoints. Source evidence is ticket-local research.md.
+
+## S5-001: features matched with Research — 2026-11-25
+
+Current specification: [S5-001 spec](../project/sprint-5/tickets/S5-001-research-parity/spec.md). Source: user request in chat 2026-11-25. Agreed.
+
+| ID | Behaviour | Status |
+| --- | --- | --- |
+| REQ-038 | Word search over grant cards in Discovery and Planning | Agreed |
+| REQ-039 | One shared, autosaved note per grant | Agreed |
+| REQ-040 | Real AI discovery with fit scores, barriers and sources; replaces the demo run; extends REQ-034 | Agreed |
+| REQ-041 | AI assessment of one grant, saved and shown again | Agreed |
+| REQ-042 | Discussion threads about a grant or about funding in general | Agreed |
+| REQ-043 | AI model choice; the charity's own AI keys, encrypted with Cloud KMS | Agreed; Google Cloud step G8 needs approval |

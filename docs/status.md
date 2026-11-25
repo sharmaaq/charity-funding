@@ -1,5 +1,10 @@
 # Current status and handoff
 
+## Latest: S5-001 specified and planned — 2026-11-25 (Claude)
+
+- The user asked to match features with Research (Aifin suite). [S5-001](../project/sprint-5/tickets/S5-001-research-parity/ticket.md): word search, grant notes, real AI discovery (takes over S4-001 Phase 3), AI assessment and discussion, the charity's own AI keys. Four phases; Phase D needs Google Cloud step G8 (KMS), which waits for the user's approval.
+- Staging-first deployment (DEC-010) and the staging Firestore database `staging` are in use; the uncommitted config changes for it (FIRESTORE_DATABASE, service-specific IAP audience) are live on staging and production as of 2026-11-25.
+
 ## Latest: S4-001 Phases 1 and 2 live behind Google sign-in — 2026-11-21 (Claude)
 
 - G5: the user created the OAuth web client in charity-funding-514818 (an earlier client made in another project was not used). G6: IAP enabled on the Cloud Run service with that client (secret set in IAP settings only, not in the repo); allAuthenticatedUsers granted roles/iap.httpsResourceAccessor; allUsers removed from roles/run.invoker; the IAP service agent holds roles/run.invoker. cloudresourcemanager.googleapis.com was also enabled, because gcloud needed it to set the IAP policy.

@@ -1,6 +1,7 @@
 // Seeds a charity into the configured store. Idempotent.
 //   DATA_BUCKET=charity-funding-514818-data npm run seed -- --charity your-place
 //   npm run seed -- --charity all
+// Staging: DATA_BUCKET=charity-funding-514818-staging-data FIRESTORE_DATABASE=staging npm run seed -- --charity all
 // Uses application default credentials (gcloud auth application-default login) or, when GCLOUD_ACCESS_TOKEN is set,
 // that OAuth access token (for example: GCLOUD_ACCESS_TOKEN=$(gcloud auth print-access-token)).
 // Without DATA_BUCKET it seeds a throwaway in-memory store (useful only as a dry run).
@@ -25,7 +26,7 @@ if (config.dataBucket) {
     authClient = new OAuth2Client();
     authClient.setCredentials({ access_token: process.env.GCLOUD_ACCESS_TOKEN });
   }
-  store = createGcpStore({ projectId: 'charity-funding-514818', bucket: config.dataBucket, authClient });
+  store = createGcpStore({ projectId: 'charity-funding-514818', bucket: config.dataBucket, databaseId: config.firestoreDatabase, authClient });
 } else {
   console.log('DATA_BUCKET is not set: seeding an in-memory store (dry run).');
   store = createMemoryStore();

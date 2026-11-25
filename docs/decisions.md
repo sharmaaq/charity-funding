@@ -75,3 +75,19 @@ No application architecture or stack decision has been agreed yet; one is propos
 - Rationale: there is no verified applicant submission API/current signed-in schema. Do not invent endpoints or claim demo delivery reached Garfield Weston. Document the full live adapter activation contract alongside executable demo requirements.
 - Scope override: REQ-005/006 placeholders and S2-001's no-transmission rule are narrowly revised for this flow. No accounts, shared durable backend, live AI or automatic submission authority added.
 - Detail: [S3-001 specification](../project/sprint-3/tickets/S3-001-automated-submission/spec.md) and [research](../project/sprint-3/tickets/S3-001-automated-submission/research.md).
+
+## DEC-009: Charity Funding is a free service in the Aifin suite
+
+- Date: 2026-11-24.
+- Status: agreed.
+- Agreement source: the user, in a workspace session with Claude.
+- Decision: Aifin may offer Charity Funding free to charities that want it. Each charity pays for its own AI use with its own API keys. Charity Funding is part of the Aifin suite with Research and the Tender Assistant (in local-govt-bids) and follows the suite approach in the workspace's `aifin/README.md`: the same workflow stages, terms and connector rules, and shared modules where the code is already the same.
+- Limits: it shares methods and code with the other suite applications, never data, deployments or GCP projects. Demo charities keep synthetic data.
+
+## DEC-010: Staging first, promotion on request
+
+- Date: 2026-11-24.
+- Status: agreed.
+- Agreement source: the user, in a workspace session with Claude.
+- Decision: every deployment goes to the staging service `charity-funding-staging` (https://charity-funding-staging.cloud.run). It has its own Firestore database (`staging`) and bucket, and admits only the user. Production changes only when the user explicitly asks to promote; promotion moves the exact staging image to production. The rule and scripts are in the workspace `CLAUDE.md` and `deploy` folder.
+- Supersedes the production deployment step of DEC-006.
