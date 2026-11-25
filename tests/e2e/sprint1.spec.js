@@ -277,7 +277,8 @@ test('the model menu lists the built-in models, sends the choice and remembers i
   await page.goto('/');
   const menu = page.getByTestId('ai-model');
   await expect(page.getByLabel('AI model')).toBeVisible();
-  await expect(menu.locator('option')).toHaveCount(2);
+  await expect(menu.locator('option')).toHaveCount(6);
+  await expect(menu.locator('option:not([disabled])')).toHaveCount(2); // Claude and ChatGPT need a key from Settings
   await expect(menu).toHaveValue('gemini:gemini-3.8-flash');
   await menu.selectOption('gemini:gemini-4-carbon');
   await page.reload();

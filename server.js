@@ -11,6 +11,8 @@ import { createStore } from './server/store/index.js';
 import { seedAll } from './server/seed/index.js';
 import { createFakeRunner } from './server/ai/fake-runner.js';
 import { runAI } from './server/ai/runners.js';
+import { createCloudKms, createLocalKms } from './server/ai/kms.js';
+import { testKey } from './server/ai/ai-core.mjs';
 
 const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'public');
 
@@ -55,7 +57,14 @@ export function createServer(options) {
   const api = options.api || createApi();
   const devMode = Boolean(config.devUserEmail) && !config.onCloudRun;
   // The AI runner: the real one, or a scripted fake (tests pass `ai`; AI_FAKE=1 does the same, in development mode only).
-  const ai = options.ai || (devMode && process.env.AI_FAKE === '1' ? { runAI: createFakeRunner({ delayMs: Number(process.env.AI_FAKE_DELAY_MS) || 30 }) } : { runAI });
+  // Keys a charity connects are encrypted with Cloud KMS (KMS_KEY); in development, with a key held in memory.
+  const fake = devMode && process.env.AI_FAKE === '1';
+  const ai = {
+    runAI: fake ? createFakeRunner({ delayMs: Number(process.env.AI_FAKE_DELAY_MS) || 30 }) : runAI,
+    testKey: fake ? async (_p, key) => (key.startsWith('bad') ? 'The key was rejected (401): invalid (fake check).' : null) : testKey,
+    kms: config.kmsKey ? createCloudKms(config.kmsKey) : (devMode ? createLocalKms() : null),
+    ...(options.ai || {}),
+  };
   const routes = createRoutes({
     store, config, now, ai, limits: options.limits || {},
     devDefaults: devMode ? { members: { 'your-place': [config.devUserEmail, 'both@test.example'], 'our-time': ['b@test.example', 'both@test.example'] } } : null,

@@ -27,6 +27,7 @@ export function readConfig(env = process.env) {
     devUserEmail: devEmail || null,
     admins,
     dataBucket: env.DATA_BUCKET || null,
+    kmsKey: env.KMS_KEY || null,
     geminiModel: env.GEMINI_MODEL || null,
     geminiLocation: env.GEMINI_LOCATION || null,
     firestoreDatabase: env.FIRESTORE_DATABASE || '(default)',

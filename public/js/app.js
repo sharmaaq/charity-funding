@@ -16,6 +16,7 @@ import { filterGrants, searchWords } from './search.js';
 import { NOTE_MAX } from './notes.js';
 import { followJob as followEvents } from './jobs.js';
 import { renderMarkdown } from './markdown.js';
+import { SETTINGS_HOME, createSettings } from './settings.js';
 import { DISCUSSIONS_HOME, createDiscussions, isDiscussionsHash, newDiscussionHash, parseDiscussionsHash } from './discussions.js';
 import { api } from './remote/http.js';
 import { SIGN_OUT_HREF, cleanOldBrowserData, pickCharity, readLastCharity, splitWordmark, writeLastCharity } from './remote/session.js';
@@ -86,6 +87,16 @@ writeLastCharity(storage, charity.id);
 applyBranding();
 
 const CID = charity.id;
+// Takes { default, models } from the server. A saved choice is kept only while its model is available.
+function applyModels(m) {
+  modelList = m.models || [];
+  let saved = null;
+  try { saved = storage && storage.getItem(modelKey()); } catch { /* ignore */ }
+  const ok = (id) => modelList.some((x) => x.id === id && x.available !== false);
+  const keep = currentModelId && ok(currentModelId) ? currentModelId : null;
+  currentModelId = keep || (ok(saved) ? saved : (ok(m.default) ? m.default : (modelList.find((x) => x.available !== false) || {}).id || ''));
+  renderAccount();
+}
 let workspace;
 try {
   workspace = await api(`/api/charities/${encodeURIComponent(CID)}/workspace`);
@@ -101,11 +112,7 @@ const services = {
 };
 try {
   const m = await api(`/api/charities/${encodeURIComponent(CID)}/ai/models`);
-  modelList = m.models || [];
-  let saved = null;
-  try { saved = storage && storage.getItem(modelKey()); } catch { /* ignore */ }
-  currentModelId = modelList.some((x) => x.id === saved) ? saved : (modelList.some((x) => x.id === m.default) ? m.default : (modelList[0] ? modelList[0].id : ''));
-  renderAccount();
+  applyModels(m);
 } catch { /* the menu is missing; Discover then fails with a message */ }
 let state = stateFromWorkspace(workspace);
 const SAVED_NOTES = Object.fromEntries(Object.entries(workspace.notes || {}).map(([id, n]) => [id, n.text]));
@@ -140,7 +147,7 @@ function renderAccount() {
   }
   if (modelList.length > 0) {
     const pick = h('select', { id: 'ai-model', 'data-testid': 'ai-model' },
-      modelList.map((m) => h('option', { value: m.id, selected: m.id === currentModelId ? true : null }, m.label)));
+      modelList.map((m) => h('option', { value: m.id, selected: m.id === currentModelId ? true : null, disabled: m.available === false ? true : null }, m.available === false ? `${m.label} (connect a key in Settings)` : m.label)));
     pick.addEventListener('change', () => {
       currentModelId = pick.value;
       try { storage && storage.setItem(modelKey(), currentModelId); } catch { /* the choice just is not remembered */ }
@@ -179,7 +186,7 @@ const ACTION_LABELS = {
   abandon: 'Abandon',
 };
 const BUTTON_CLASS = { plan: 'btn primary', markSuitable: 'btn lime', pass: 'btn quiet', abandon: 'btn quiet' };
-const AREA_TITLES = { discovery: 'Discovery', planning: 'Planning & submission', tracking: 'Tracking', discussions: 'Discussions' };
+const AREA_TITLES = { discovery: 'Discovery', planning: 'Planning & submission', tracking: 'Tracking', discussions: 'Discussions', settings: 'Settings' };
 const ORG_HOME = '#/organisation';
 const ACTION_RESULT = {
   watch: 'watchlist',
@@ -741,6 +748,7 @@ function renderNav(route) {
     ['Planning & submission', VIEW_HASH.planning, route.area === 'planning' || route.area === 'application'],
     ['Tracking', '#/tracking', route.area === 'tracking'],
     ['Discussions', DISCUSSIONS_HOME, route.area === 'discussions'],
+    ['Settings', SETTINGS_HOME, route.area === 'settings'],
   ];
   navEl.setAttribute('aria-label', 'Main');
   navEl.replaceChildren(...items.map(([label, href, current]) =>
@@ -756,11 +764,12 @@ function currentRoute() {
   if (app) return { area: 'application', app };
   const disc = isDiscussionsHash(hash) ? parseDiscussionsHash(hash) : null;
   if (disc) return { area: 'discussions', disc };
+  if (hash === SETTINGS_HOME) return { area: 'settings' };
   return ROUTES[DEFAULT_ROUTE];
 }
 
 function isKnownHash(hash) {
-  return Boolean(ROUTES[hash] || (isOrgHash(hash) && parseOrgHash(hash)) || (isApplicationHash(hash) && parseApplicationHash(hash)) || (isDiscussionsHash(hash) && parseDiscussionsHash(hash)));
+  return Boolean(ROUTES[hash] || (isOrgHash(hash) && parseOrgHash(hash)) || (isApplicationHash(hash) && parseApplicationHash(hash)) || (isDiscussionsHash(hash) && parseDiscussionsHash(hash)) || hash === SETTINGS_HOME);
 }
 
 function fallbackHash(hash) {
@@ -799,6 +808,9 @@ const discussions = createDiscussions({
     else location.hash = hash; // hashchange triggers render
   },
 });
+// Settings (#/settings) lives in js/settings.js: the charity's own AI keys.
+const settingsView = createSettings({ mount: mainEl, titleEl, cid: CID, api, h, announce: (text) => announce(text), onModels: (m) => applyModels(m) });
+let shownSettings = null;
 let discussionsShown = null; // the hash the discussions view was last drawn for
 
 // The application workspace (#/planning/<grant>/application...) lives in js/application/ and renders itself into <main>.
@@ -834,6 +846,22 @@ function setBrandActive(on) {
 function render(opts = {}) {
   const route = currentRoute();
   renderNav(route);
+  if (route.area === 'settings') {
+    organisation.hide();
+    application.hide();
+    discussions.hide();
+    discussionsShown = null;
+    clearTimeout(tickTimer);
+    tickTimer = null;
+    setBrandActive(false);
+    panelEl.hidden = true;
+    updateNotice();
+    if (pendingMessage) { announce(pendingMessage.text, pendingMessage.hash, pendingMessage.link); pendingMessage = null; }
+    if (shownSettings !== location.hash) { shownSettings = location.hash; settingsView.show(); if (opts.focus !== false) titleEl.focus({ preventScroll: true }); }
+    return;
+  }
+  settingsView.hide();
+  shownSettings = null;
   if (route.area === 'discussions') {
     organisation.hide();
     application.hide();
@@ -1003,7 +1031,7 @@ async function finishRun(jobId, { announceDone = true } = {}) {
   const done = `Discovery complete: ${result.new} new, ${result.updated} updated.`;
   pendingMessage = announceDone ? { text: done, hash: VIEW_HASH.new, link: 'Go to New' } : null;
   const route = currentRoute();
-  if (route.area === 'organisation' || route.area === 'application' || route.area === 'discussions') { if (pendingMessage) { announce(pendingMessage.text, pendingMessage.hash, pendingMessage.link); pendingMessage = null; } return; }
+  if (route.area === 'organisation' || route.area === 'application' || route.area === 'discussions' || route.area === 'settings') { if (pendingMessage) { announce(pendingMessage.text, pendingMessage.hash, pendingMessage.link); pendingMessage = null; } return; }
   render({ focus: false });
 }
 

@@ -10,6 +10,7 @@ export const STATUS = Object.freeze({
   exists: 409,
   capacity: 413,
   forbidden: 403,
+  unavailable: 503,
   unknown: 500,
 });
 

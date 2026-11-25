@@ -110,7 +110,7 @@ test('models: built-in Gemini only for now; the default resolves; Claude and Cha
   assert.ok(ids.includes(DEFAULT_MODEL));
   assert.ok(ids.every((id) => id.startsWith('gemini:')));
   assert.equal(resolveModel('').model, 'gemini-3.8-flash');
-  assert.throws(() => resolveModel('claude:claude-opus-5-5'), /not available/);
+  assert.throws(() => resolveModel('claude:claude-opus-5-5'), /Connect your own key/);
   assert.throws(() => resolveModel('nope'), /Choose one/);
 });
 

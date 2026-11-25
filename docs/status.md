@@ -1,6 +1,10 @@
 # Current status and handoff
 
-## Latest: S5-001 Phase C (assessment and discussion) built — 2026-11-25 (implementing model)
+## Latest: S5-001 Phase D (the charity's own AI keys) built — 2026-11-25 (implementing model)
+
+- Settings page to connect Claude, ChatGPT or a Gemini key per charity (checked with the provider, stored KMS-encrypted, only the last four characters shown); the "AI model" menu lists Claude and ChatGPT disabled until their key is connected; Discover, Assess and Discuss resolve the model and key on every request. Local tests: unit 152 (1 skipped), integration 113, Playwright 348, all passing (fake KMS). Real KMS encrypt and decrypt of a dummy string worked from the implementer's machine. Real provider keys not tested. See the [ticket](../project/sprint-5/tickets/S5-001-research-parity/ticket.md).
+
+## Earlier: S5-001 Phase C (assessment and discussion) built — 2026-11-25 (implementing model)
 
 - "Assess with AI" (streamed, saved, re-assessable, "Assessed" marker) and "Discuss" on every card; a Discussions page with saved threads (rename, delete, history sent with each message). Local tests: unit 148 (1 skipped), integration 103, Playwright 330, all passing. Phase D (own AI keys, needs G8) not started. See the [ticket](../project/sprint-5/tickets/S5-001-research-parity/ticket.md).
 

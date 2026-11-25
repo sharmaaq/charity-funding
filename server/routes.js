@@ -20,7 +20,9 @@ import { createDiscoveryService } from './services/discovery.js';
 import { createAssistService } from './services/assist.js';
 import { createJobs } from './ai/jobs.js';
 import { runAI } from './ai/runners.js';
-import { DEFAULT_MODEL, availableModels, publicModel, resolveModel } from './ai/models.js';
+import { DEFAULT_MODEL, allModels, publicModel, resolveModel } from './ai/models.js';
+import { createAiKeysService, KEY_PROVIDERS, PROVIDER_LABELS } from './services/ai-keys.js';
+import { testKey as realTestKey } from './ai/ai-core.mjs';
 import { DEFAULT_THEME, GENERIC_CHARITY_NOTICE, seedCharity, seedAll, CHARITIES } from './seed/index.js';
 
 const WRITE = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -56,6 +58,7 @@ export function createRoutes({ store, config, now = () => new Date(), limits = {
   const apps = createApplicationService(store, { now, limits });
   const workspace = createWorkspaceService(store, { now });
   const jobs = createJobs();
+  const aiKeys = createAiKeysService({ store, kms: ai.kms || null, testKey: ai.testKey || realTestKey, now });
   const assist = createAssistService({ store, org, jobs, ai, now, runTimeoutMs: limits.aiRunTimeoutMs });
   const discovery = createDiscoveryService({ store, org, jobs, ai, now, runTimeoutMs: limits.aiRunTimeoutMs });
   const routes = [];
@@ -100,23 +103,37 @@ export function createRoutes({ store, config, now = () => new Date(), limits = {
   add('PUT', `${P}/discovery-settings`, C(async ({ cid, req, res }) => sendJson(res, 200, await workspace.updateSettings(cid, await readJson(req)))));
 
   // AI: the model picker, discovery runs and the live progress of any job (server-sent events)
-  add('GET', `${P}/ai/models`, C(async ({ res }) => sendJson(res, 200, { default: DEFAULT_MODEL, models: availableModels({}).map(publicModel) })));
+  // The model for this request, with the charity's own key if the model needs one. Resolved on every request.
+  const modelOf = async (cid, b) => resolveModel(typeof (b && b.model) === 'string' ? b.model : '', await aiKeys.keysFor(cid));
+  const modelMenu = async (cid) => ({ default: DEFAULT_MODEL, models: allModels(await aiKeys.keysFor(cid)).map(publicModel) });
+  add('GET', `${P}/ai/models`, C(async ({ cid, res }) => sendJson(res, 200, await modelMenu(cid))));
+  add('GET', `${P}/ai/settings`, C(async ({ cid, res }) => sendJson(res, 200, {
+    ...(await modelMenu(cid)), connections: await aiKeys.connections(cid), keysAvailable: aiKeys.available(),
+    providers: KEY_PROVIDERS.map((p) => ({ id: p, label: PROVIDER_LABELS[p] })),
+  })));
+  add('PUT', `${P}/ai/keys/:provider`, C(async ({ cid, req, res, params, user }) => {
+    const connections = await aiKeys.set(cid, params.provider, await readJson(req), user.email);
+    sendJson(res, 200, { connections, ...(await modelMenu(cid)) });
+  }));
+  add('DELETE', `${P}/ai/keys/:provider`, C(async ({ cid, res, params }) => {
+    const connections = await aiKeys.remove(cid, params.provider);
+    sendJson(res, 200, { connections, ...(await modelMenu(cid)) });
+  }));
   add('GET', `${P}/discover/active`, C(async ({ cid, res }) => { const j = discovery.active(cid); sendJson(res, 200, { jobId: j ? j.id : null }); }));
   add('POST', `${P}/discover`, C(async ({ cid, req, res, user }) => {
     const b = await readJson(req);
-    const job = await discovery.start(cid, user.email, resolveModel(typeof b.model === 'string' ? b.model : '', {}));
+    const job = await discovery.start(cid, user.email, await modelOf(cid, b));
     sendJson(res, 200, { jobId: job.id });
   }));
-  const modelOf = (b) => resolveModel(typeof (b && b.model) === 'string' ? b.model : '', {});
   add('GET', `${P}/assessments/:oid`, C(async ({ cid, res, params }) => sendJson(res, 200, await assist.getAssessment(cid, rid({ params }, 'oid')))));
   add('POST', `${P}/opportunities/:oid/assess`, C(async ({ cid, req, res, params, user }) => {
-    const job = await assist.startAssessment(cid, rid({ params }, 'oid'), user.email, modelOf(await readJson(req)));
+    const job = await assist.startAssessment(cid, rid({ params }, 'oid'), user.email, await modelOf(cid, await readJson(req)));
     sendJson(res, 200, { jobId: job.id });
   }));
   add('GET', `${P}/threads`, C(async ({ cid, res }) => sendJson(res, 200, { threads: await assist.listThreads(cid) })));
   add('POST', `${P}/threads`, C(async ({ cid, req, res, user }) => {
     const b = await readJson(req);
-    const { thread, job } = await assist.send(cid, user.email, modelOf(b), { grantId: typeof b.grantId === 'string' ? b.grantId : null, text: b.text });
+    const { thread, job } = await assist.send(cid, user.email, await modelOf(cid, b), { grantId: typeof b.grantId === 'string' ? b.grantId : null, text: b.text });
     sendJson(res, 200, { thread, jobId: job.id });
   }));
   add('GET', `${P}/threads/:id`, C(async ({ cid, res, params }) => sendJson(res, 200, await assist.getThread(cid, rid({ params })))));
@@ -124,7 +141,7 @@ export function createRoutes({ store, config, now = () => new Date(), limits = {
   add('DELETE', `${P}/threads/:id`, C(async ({ cid, res, params }) => sendJson(res, 200, await assist.deleteThread(cid, rid({ params })))));
   add('POST', `${P}/threads/:id/messages`, C(async ({ cid, req, res, params, user }) => {
     const b = await readJson(req);
-    const { thread, job } = await assist.send(cid, user.email, modelOf(b), { threadId: rid({ params }), text: b.text });
+    const { thread, job } = await assist.send(cid, user.email, await modelOf(cid, b), { threadId: rid({ params }), text: b.text });
     sendJson(res, 200, { thread, jobId: job.id });
   }));
   add('GET', `${P}/jobs/:jid/events`, C(async ({ cid, req, res, params }) => {
@@ -296,11 +313,13 @@ export function createRoutes({ store, config, now = () => new Date(), limits = {
     // Read-only view of a stored collection, for tests that check what the server holds. Exists only with the dev identity.
     add('GET', '/api/dev/state/:cid/:coll', async ({ res, params }) => {
       if (!CHARITY_ID_RE.test(params.cid) || !COLLECTIONS.includes(params.coll)) return sendJson(res, 404, notFoundBody());
-      sendJson(res, 200, { records: await store.list(params.cid, params.coll) });
+      const records = (await store.list(params.cid, params.coll)).map((r) => (r && r.key === 'aiKeys' ? { key: 'aiKeys', providers: Object.keys(r.keys || {}) } : r));
+      sendJson(res, 200, { records });
     });
     add('POST', '/api/dev/reset', async ({ req, res }) => {
       const body = /^application\/json/i.test(req.headers['content-type'] || '') ? await readJson(req) : {};
       store._clear();
+      aiKeys.clearCache();
       await seedAll(store, { now });
       const members = { ...devDefaults.members, ...(body.members || {}) };
       for (const [cid, list] of Object.entries(members)) await store.updateCharity(cid, { members: list.map(normaliseEmail) });

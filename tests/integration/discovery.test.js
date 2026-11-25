@@ -141,7 +141,9 @@ test('model menu: built-in Gemini models for a member; a stranger gets 404', asy
   const m = await h.call('a', 'GET', `${base}/ai/models`);
   assert.equal(m.status, 200);
   assert.equal(m.body.default, 'gemini:gemini-3.8-flash');
-  assert.deepEqual(m.body.models.map((x) => x.id), ['gemini:gemini-3.8-flash', 'gemini:gemini-4-carbon']);
+  assert.deepEqual(m.body.models.filter((x) => x.available).map((x) => x.id), ['gemini:gemini-3.8-flash', 'gemini:gemini-4-carbon']);
+  assert.equal(m.body.models.length, 6); // Claude and ChatGPT are listed too, but not available until a key is connected
+  assert.equal(m.body.models.find((x) => x.provider === 'claude').available, false);
   assert.equal((await h.call('b', 'GET', `${base}/ai/models`)).status, 404);
 });
 
